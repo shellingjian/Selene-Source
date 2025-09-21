@@ -12,6 +12,7 @@ import '../models/play_record.dart';
 import '../services/page_cache_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../utils/image_url.dart';
+import '../widgets/switch_loading_overlay.dart';
 
 class PlayerScreen extends StatefulWidget {
   final String? source;
@@ -56,6 +57,14 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
   String? _errorMessage;
   bool _showError = false;
 
+  // 加载状态
+  bool _isLoading = true;
+  String _loadingMessage = '正在搜索播放源...';
+  String _loadingEmoji = '🔍'; // 加载图标 emoji
+  double _loadingProgress = 0.0; // 加载进度百分比 (0.0 - 1.0)
+  late AnimationController _loadingAnimationController;
+  late AnimationController _textAnimationController;
+
   // 播放信息
   SearchResult? currentDetail;
   String searchTitle = '';
@@ -90,6 +99,11 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
   // 收藏状态
   bool _isFavorite = false;
   
+  // 切换播放源/集数时的加载蒙版状态
+  bool _showSwitchLoadingOverlay = false;
+  String _switchLoadingMessage = '切换播放源...';
+  late AnimationController _switchLoadingAnimationController;
+  
   // 选集相关状态
   bool _isEpisodesReversed = false;
   final ScrollController _episodesScrollController = ScrollController();
@@ -112,6 +126,18 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
+    _loadingAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    )..repeat();
+    _textAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    )..repeat(reverse: true);
+    _switchLoadingAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat();
     // 添加应用生命周期监听器
     WidgetsBinding.instance.addObserver(this);
     initVideoData();
@@ -142,6 +168,16 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
       return;
     }
 
+    if (widget.source != null && widget.id != null && (widget.prefer == null || widget.prefer != 'true')) {
+      updateLoadingMessage('正在获取播放源详情...');
+      updateLoadingProgress(0.5);
+      updateLoadingEmoji('🔍');
+    } else {
+      updateLoadingMessage('正在搜索播放源...');
+      updateLoadingProgress(0.33);
+      updateLoadingEmoji('🔍');
+    }
+
     // 初始化参数
     initParam();
     
@@ -153,7 +189,7 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
       allSources = await fetchSourceDetail(currentSource, currentID);
     }
     if (allSources.isEmpty) {
-      showError('未找到匹配的结果');
+      showError('未找到匹配结果');
       return;
     }
     
@@ -170,6 +206,9 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
 
     // 未指定源和 id/需要优选，执行优选
     if (currentSource.isEmpty || currentID.isEmpty || needPrefer) {
+      updateLoadingMessage('正在优选最佳播放源...');
+      updateLoadingProgress(0.66);
+      updateLoadingEmoji('⚡');
       currentDetail = await preferBestSource();
     }
     setInfosByDetail(currentDetail!);
@@ -409,6 +448,7 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
     setState(() {
       _errorMessage = message;
       _showError = true;
+      _isLoading = false;
     });
   }
 
@@ -420,6 +460,26 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
     });
   }
 
+  void updateLoadingMessage(String message) {
+    setState(() {
+      _loadingMessage = message;
+    });
+  }
+
+  /// 更新加载进度
+  void updateLoadingProgress(double progress) {
+    setState(() {
+      _loadingProgress = progress.clamp(0.0, 1.0);
+    });
+  }
+
+  /// 更新加载 emoji
+  void updateLoadingEmoji(String emoji) {
+    setState(() {
+      _loadingEmoji = emoji;
+    });
+  }
+
   /// 动态更新视频 URL
   Future<void> updateVideoUrl(String newUrl) async {
     try {
@@ -428,7 +488,7 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
         _currentVideoUrl = newUrl;
       });
     } catch (e) {
-      showError('更新视频失败: $e');
+      // 静默处理错误
     }
   }
 
@@ -437,7 +497,7 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
     try {
       await _videoPlayerController?.seekTo(position);
     } catch (e) {
-      showError('跳转进度失败: $e');
+      // 静默处理错误
     }
   }
 
@@ -465,6 +525,22 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
   void _onVideoPlayerReady() {
     // 视频播放器准备就绪时的处理逻辑
     debugPrint('Video player is ready!');
+    
+    // 设置进度为 100%
+    updateLoadingProgress(1.0);
+    updateLoadingMessage('准备就绪，即将开始播放...');
+    updateLoadingEmoji('✨');
+
+    // 延时 1 秒后隐藏加载界面
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          // 隐藏切换加载蒙版
+          _showSwitchLoadingOverlay = false;
+        });
+      }
+    });
     
     // 如果有需要恢复的播放进度，则跳转到指定位置
     if (resumeTime > 0) {
@@ -513,6 +589,12 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
       return;
     }
     
+    // 显示切换加载蒙版
+    setState(() {
+      _showSwitchLoadingOverlay = true;
+      _switchLoadingMessage = '切换选集...';
+    });
+    
     // 集数切换前保存进度
     _saveProgress(force: true);
     
@@ -534,6 +616,12 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
       _showToast('播放完成');
       return;
     }
+    
+    // 显示切换加载蒙版
+    setState(() {
+      _showSwitchLoadingOverlay = true;
+      _switchLoadingMessage = '自动播放下一集...';
+    });
     
     // 集数切换前保存进度
     _saveProgress(force: true);
@@ -657,6 +745,12 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
 
   /// 切换视频源
   void _switchSource(SearchResult newSource) async {
+    // 显示切换加载蒙版
+    setState(() {
+      _showSwitchLoadingOverlay = true;
+      _switchLoadingMessage = '切换播放源...';
+    });
+    
     // 保存当前播放进度
     final currentProgress = currentPosition?.inSeconds ?? 0;
     final currentEpisode = currentEpisodeIndex;
@@ -716,8 +810,7 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
     final screenWidth = MediaQuery.of(context).size.width;
     final horizontalPadding = 32.0;
     final availableWidth = screenWidth - horizontalPadding;
-    final buttonWidth = (availableWidth / 3.2) - 6;
-    final itemWidth = buttonWidth + 6; // 按钮宽度 + 右边距
+    final buttonWidth = (availableWidth / 3.2) - 6; // 减去右边距6
     
     final targetIndex = _isEpisodesReversed 
         ? currentDetail!.episodes.length - 1 - currentEpisodeIndex 
@@ -726,7 +819,7 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
     // 计算选中项在屏幕中央的偏移量
     // 屏幕宽度的一半减去按钮宽度的一半，让选中项居中
     final centerOffset = (screenWidth - horizontalPadding) / 2 - buttonWidth / 2;
-    final targetOffset = (targetIndex * itemWidth) - centerOffset;
+    final targetOffset = (targetIndex * buttonWidth) - centerOffset;
     
     // 确保不滚动到负值或超出范围
     final maxScrollExtent = _episodesScrollController.position.maxScrollExtent;
@@ -1010,6 +1103,11 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
   Widget _buildEpisodesSection(ThemeData theme) {
     final isDarkMode = theme.brightness == Brightness.dark;
     
+    // 如果总集数只有一集，则不展示选集区域
+    if (totalEpisodes <= 1) {
+      return const SizedBox.shrink();
+    }
+    
     return Column(
       children: [
         // 选集标题行
@@ -1160,6 +1258,12 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
                         aspectRatio: 3 / 2, // 严格保持3:2宽高比
                         child: GestureDetector(
                           onTap: () {
+                            // 显示切换加载蒙版
+                            setState(() {
+                              _showSwitchLoadingOverlay = true;
+                              _switchLoadingMessage = '切换选集...';
+                            });
+                            
                             // 集数切换前保存进度
                             _saveProgress(force: true);
                             
@@ -1253,6 +1357,17 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
                 currentEpisodeIndex: currentEpisodeIndex,
                 isReversed: _isEpisodesReversed,
                 onEpisodeTap: (index) {
+                  // 先关闭弹窗
+                  Navigator.pop(context);
+                  
+                  // 在下一帧显示切换加载蒙版
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    this.setState(() {
+                      _showSwitchLoadingOverlay = true;
+                      _switchLoadingMessage = '切换选集...';
+                    });
+                  });
+                  
                   // 集数切换前保存进度
                   _saveProgress(force: true);
                   
@@ -1260,7 +1375,6 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
                     currentEpisodeIndex = index;
                   });
                   updateVideoUrl(currentDetail!.episodes[index]);
-                  Navigator.pop(context);
                   _scrollToCurrentEpisode();
                 },
                 onToggleOrder: () {
@@ -1626,7 +1740,7 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
       );
       
     } catch (e) {
-      showError('刷新测速失败: $e');
+      // 静默处理错误
     } finally {
       // 如果是从外部调用（非面板），停止刷新状态
       if (stateSetter == null) {
@@ -1649,16 +1763,12 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
       height: double.infinity,
       decoration: BoxDecoration(
         gradient: isDarkMode 
-          ? const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.black, Colors.grey],
-            )
+          ? null
           : const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFFe6f3fb), // 与首页保持一致
+                Color(0xFFe6f3fb),
                 Color(0xFFeaf3f7),
                 Color(0xFFf7f7f3),
                 Color(0xFFe9ecef),
@@ -1667,6 +1777,7 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
               ],
               stops: [0.0, 0.18, 0.38, 0.60, 0.80, 1.0],
             ),
+        color: isDarkMode ? Colors.black : null,
       ),
       child: Stack(
         children: [
@@ -1927,9 +2038,12 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
     // 释放滚动控制器
     _episodesScrollController.dispose();
     _sourcesScrollController.dispose();
-    // 释放动画控制器
-    _refreshAnimationController.dispose();
-    super.dispose();
+      // 释放动画控制器
+      _refreshAnimationController.dispose();
+      _loadingAnimationController.dispose();
+      _textAnimationController.dispose();
+      _switchLoadingAnimationController.dispose();
+      super.dispose();
   }
 
   @override
@@ -1976,21 +2090,31 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
                   height: MediaQuery.maybeOf(context)?.padding.top ?? 0,
                   color: Colors.black,
                 ),
-                VideoPlayerWidget(
-                  videoUrl: _currentVideoUrl,
-                  aspectRatio: 16 / 9,
-                  onBackPressed: _onBackPressed,
-                  onFullscreenChange: _handleFullscreenChange,
-                  onControllerCreated: (controller) {
-                    _videoPlayerController = controller;
-                  },
-                  onReady: _onVideoPlayerReady,
-                  onNextEpisode: _onNextEpisode,
-                  onVideoCompleted: _onVideoCompleted,
-                  onPause: () {
-                    // 暂停时保存进度
-                    _saveProgress(force: true);
-                  },
+                Stack(
+                  children: [
+                    VideoPlayerWidget(
+                      videoUrl: _currentVideoUrl,
+                      aspectRatio: 16 / 9,
+                      onBackPressed: _onBackPressed,
+                      onFullscreenChange: _handleFullscreenChange,
+                      onControllerCreated: (controller) {
+                        _videoPlayerController = controller;
+                      },
+                      onReady: _onVideoPlayerReady,
+                      onNextEpisode: _onNextEpisode,
+                      onVideoCompleted: _onVideoCompleted,
+                      onPause: () {
+                        // 暂停时保存进度
+                        _saveProgress(force: true);
+                      },
+                    ),
+                    // 切换播放源/集数时的加载蒙版（只遮挡播放器）
+                    SwitchLoadingOverlay(
+                      isVisible: _showSwitchLoadingOverlay,
+                      message: _switchLoadingMessage,
+                      animationController: _switchLoadingAnimationController,
+                    ),
+                  ],
                 ),
                 Expanded(
                   child: _buildVideoDetailSection(theme),
@@ -2000,8 +2124,119 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
             // 错误覆盖层
             if (_showError && _errorMessage != null)
               _buildErrorOverlay(theme),
+            // 加载覆盖层
+            if (_isLoading)
+              _buildLoadingOverlay(theme),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// 构建加载覆盖层
+  Widget _buildLoadingOverlay(ThemeData theme) {
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        gradient: isDarkMode 
+          ? null
+          : const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFe6f3fb),
+                Color(0xFFeaf3f7),
+                Color(0xFFf7f7f3),
+                Color(0xFFe9ecef),
+                Color(0xFFdbe3ea),
+                Color(0xFFd3dde6),
+              ],
+              stops: [0.0, 0.18, 0.38, 0.60, 0.80, 1.0],
+            ),
+        color: isDarkMode ? Colors.black : null,
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                // 旋转的背景方块（半透明绿色）
+                RotationTransition(
+                  turns: _loadingAnimationController,
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2ecc71).withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+                // 中间的图标容器（减小尺寸，删除阴影）
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF2ecc71), Color(0xFF27ae60)],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _loadingEmoji,
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 40),
+            // 进度条
+            Container(
+              width: 200,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: _loadingProgress,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2ecc71),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            // 加载文案
+            AnimatedBuilder(
+              animation: _textAnimationController,
+              builder: (context, child) {
+                return Text(
+                  _loadingMessage,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: (isDarkMode ? Colors.white70 : Colors.black54).withOpacity(
+                      0.3 + (_textAnimationController.value * 0.7),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
