@@ -141,7 +141,7 @@ class AggregatedSearchResult {
       totalEpisodes: mostCommonEpisodeCount,
       playTime: 0,
       totalTime: 0,
-      saveTime: addedTimestamp ~/ 1000,
+      saveTime: addedTimestamp,
       searchTitle: title,
       doubanId: mostCommonDoubanId,
     );

@@ -421,7 +421,7 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
         totalEpisodes: totalEpisodesSnapshot,
         playTime: playTime,
         totalTime: totalTime,
-        saveTime: DateTime.now().millisecondsSinceEpoch ~/ 1000, // 当前时间戳（秒）
+        saveTime: DateTime.now().millisecondsSinceEpoch, // 当前时间戳（毫秒）
         searchTitle: searchTitleSnapshot,
       );
       
