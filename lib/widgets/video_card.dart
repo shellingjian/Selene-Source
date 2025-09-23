@@ -54,14 +54,21 @@ class VideoCard extends StatelessWidget {
         return GestureDetector(
           onTap: onTap,
           onLongPress: (from == 'playrecord' || from == 'douban' || from == 'bangumi' || from == 'favorite' || from == 'search' || from == 'agg') ? () {
-            // 触发震动反馈
-            try {
-              HapticFeedback.mediumImpact();
-            } catch (e) {
-              // 震动失败时静默处理，不影响菜单显示
-            }
-            
-            _showGlobalMenu(context);
+            // 使用微任务延迟震动反馈，确保动画优先执行
+            Future.microtask(() {
+              try {
+                HapticFeedback.mediumImpact();
+              } catch (e) {
+                // 震动失败时静默处理，不影响菜单显示
+              }
+            });
+
+            // 使用延迟显示菜单，避免长按阻塞UI
+            Future.delayed(const Duration(milliseconds: 50), () {
+              if (context.mounted) {
+                _showGlobalMenu(context);
+              }
+            });
           } : null,
           // 优化长按响应
           onLongPressStart: (from == 'playrecord' || from == 'douban' || from == 'bangumi' || from == 'favorite' || from == 'search' || from == 'agg') ? (_) {

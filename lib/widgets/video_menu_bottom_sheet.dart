@@ -118,6 +118,11 @@ class VideoMenuBottomSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.5), // 添加半透明的遮罩层
+      transitionAnimationController: AnimationController(
+        duration: const Duration(milliseconds: 200), // 缩短动画时间到200ms
+        vsync: Navigator.of(context),
+      ),
       builder: (context) => VideoMenuBottomSheet(
         videoInfo: videoInfo,
         isFavorited: isFavorited,
@@ -166,24 +171,33 @@ class _VideoMenuBottomSheetState extends State<VideoMenuBottomSheet>
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    // 初始化浮动动画控制器
+    // 初始化浮动动画控制器 - 使用更流畅的曲线
     _floatAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1200), // 缩短浮动动画时间
       vsync: this,
     )..repeat(reverse: true);
-    
-    // 初始化过渡动画控制器
+
+    // 初始化过渡动画控制器 - 使用更快的动画
     _transitionAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 180), // 缩短到180ms
       vsync: this,
     );
-    // 先渲染基础菜单，再加载豆瓣详情和 Bangumi 详情
+
+    // 延迟执行初始化操作，避免阻塞动画
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _captureInitialHeight();
-      // 延迟加载详情，确保初始高度已经被捕获
-      Future.delayed(const Duration(milliseconds: 50), () {
-        _loadDoubanDetailsIfNeeded();
-        _loadBangumiDetailsIfNeeded();
+      // 使用微任务确保动画优先执行
+      Future.microtask(() {
+        if (mounted) {
+          _captureInitialHeight();
+        }
+      });
+
+      // 延迟加载详情数据，避免影响初始动画
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _loadDoubanDetailsIfNeeded();
+          _loadBangumiDetailsIfNeeded();
+        }
       });
     });
   }
@@ -217,10 +231,15 @@ class _VideoMenuBottomSheetState extends State<VideoMenuBottomSheet>
       final renderBox = _sheetKey.currentContext?.findRenderObject() as RenderBox?;
       final height = renderBox?.size.height;
       if (height != null && mounted && !_hasInitialHeightCaptured) {
-        setState(() {
-          _initialSheetHeight = height;
-          _currentSheetHeight = height;
-          _hasInitialHeightCaptured = true;
+        // 延迟设置状态，避免在动画期间重建
+        Future.microtask(() {
+          if (mounted) {
+            setState(() {
+              _initialSheetHeight = height;
+              _currentSheetHeight = height;
+              _hasInitialHeightCaptured = true;
+            });
+          }
         });
       }
     } catch (e) {
@@ -272,20 +291,21 @@ class _VideoMenuBottomSheetState extends State<VideoMenuBottomSheet>
   /// 执行平滑过渡动画
   void _animateToHeight(double targetHeight) {
     if (_currentSheetHeight == null || _initialSheetHeight == null) return;
-    
+
     final startHeight = _currentSheetHeight!;
-    
+
     // 如果已经在目标高度，不需要动画
     if ((startHeight - targetHeight).abs() < 1.0) return;
-    
+
+    // 使用更高效的动画曲线
     _transitionAnimation = Tween<double>(
       begin: startHeight,
       end: targetHeight,
     ).animate(CurvedAnimation(
       parent: _transitionAnimationController,
-      curve: Curves.easeOutCubic,
+      curve: Curves.easeOutQuart, // 使用更平滑的曲线
     ));
-    
+
     _transitionAnimation!.addListener(() {
       if (mounted) {
         setState(() {
@@ -293,9 +313,24 @@ class _VideoMenuBottomSheetState extends State<VideoMenuBottomSheet>
         });
       }
     });
-    
+
     _transitionAnimationController.reset();
     _transitionAnimationController.forward();
+  }
+
+  /// 更新拖拽高度 - 用于更高效的拖拽处理
+  void _updateDragHeight(double newHeight, double effectiveMaxHeight, bool isDraggingDown) {
+    // 限制高度在有效范围内
+    final clampedHeight = newHeight.clamp(_initialSheetHeight!, effectiveMaxHeight);
+
+    // 只在高度有显著变化时更新UI
+    final currentHeight = _currentSheetHeight ?? _initialSheetHeight!;
+    if ((currentHeight - clampedHeight).abs() > 0.5) {
+      setState(() {
+        _currentSheetHeight = clampedHeight;
+        _showScrollIndicator = (clampedHeight - _initialSheetHeight!) < 20.0;
+      });
+    }
   }
 
 
@@ -412,14 +447,12 @@ class _VideoMenuBottomSheetState extends State<VideoMenuBottomSheet>
                   final isScrollAtTop = !_scrollController.hasClients || _scrollController.offset <= 0;
                   final isDraggingUp = details.delta.dy < 0; // 向上拖拽
                   final isDraggingDown = details.delta.dy > 0; // 向下拖拽
-                  
-                  // 更新拖拽方向状态，使用setState确保UI重建
+
+                  // 更新拖拽方向状态，减少setState调用
                   if (_isDraggingDown != isDraggingDown) {
-                    setState(() {
-                      _isDraggingDown = isDraggingDown;
-                    });
+                    _isDraggingDown = isDraggingDown;
                   }
-                  
+
                   // 如果已经在最大高度且内容可滚动且不在顶部，并且是向上拖拽，则不响应
                   if (isAtMaxHeight && _scrollController.hasClients && !isScrollAtTop && isDraggingUp) {
                     return;
@@ -428,31 +461,25 @@ class _VideoMenuBottomSheetState extends State<VideoMenuBottomSheet>
                   // 在已展开+到顶+向下拖拽时，锁定内部滚动，让外层接管
                   final shouldLockInnerScroll = isAtMaxHeight && isScrollAtTop && isDraggingDown;
                   if (shouldLockInnerScroll && !_lockInnerScroll) {
-                    setState(() {
-                      _lockInnerScroll = true;
-                      _isInCollapsePhase = true; // 开始收起阶段
-                    });
+                    _lockInnerScroll = true;
+                    _isInCollapsePhase = true; // 开始收起阶段
                   }
-                  
+
                   final delta = -details.delta.dy; // 负值表示向上拖拽
                   final newHeight = (_currentSheetHeight ?? _initialSheetHeight!) + delta;
 
                   // 使用内容基础的最大高度，如果没有则使用屏幕基础的最大高度
                   final effectiveMaxHeight = _contentBasedMaxHeight ?? _maxSheetHeight;
-                  
+
                   // iOS 二段式滑动逻辑
                   if (_isIOS && _isInCollapsePhase) {
                     // 第一阶段：从最大高度收起到初始高度
                     if (isDraggingDown && _currentSheetHeight! > _initialSheetHeight!) {
-                      // 正在收起详情阶段，限制在初始高度和最大高度之间
-                      final clampedHeight = newHeight.clamp(_initialSheetHeight!, effectiveMaxHeight);
-                      setState(() {
-                        _currentSheetHeight = clampedHeight;
-                        _showScrollIndicator = (clampedHeight - _initialSheetHeight!) < 20.0;
-                      });
+                      // 使用高效的拖拽高度更新
+                      _updateDragHeight(newHeight, effectiveMaxHeight, isDraggingDown);
                       return;
                     }
-                    
+
                     // 如果已经到达初始高度，继续向下拖拽则进入第二阶段（关闭弹窗）
                     if (isDraggingDown && _currentSheetHeight! <= _initialSheetHeight! + 1) {
                       // 第二阶段：从初始高度继续向下拖拽，超过阈值则关闭
@@ -461,10 +488,7 @@ class _VideoMenuBottomSheetState extends State<VideoMenuBottomSheet>
                         return;
                       }
                       // 否则保持在初始高度
-                      setState(() {
-                        _currentSheetHeight = _initialSheetHeight!;
-                        _showScrollIndicator = true;
-                      });
+                      _updateDragHeight(_initialSheetHeight!, effectiveMaxHeight, isDraggingDown);
                       return;
                     }
                   } else {
@@ -474,15 +498,9 @@ class _VideoMenuBottomSheetState extends State<VideoMenuBottomSheet>
                       widget.onClose();
                       return;
                     }
-                    
-                    // 限制高度在初始高度和有效最大高度之间
-                    final clampedHeight = newHeight.clamp(_initialSheetHeight!, effectiveMaxHeight);
-                    
-                    setState(() {
-                      _currentSheetHeight = clampedHeight;
-                      // 当高度接近初始高度时显示箭头提示
-                      _showScrollIndicator = (clampedHeight - _initialSheetHeight!) < 20.0;
-                    });
+
+                    // 使用高效的拖拽高度更新
+                    _updateDragHeight(newHeight, effectiveMaxHeight, isDraggingDown);
                   }
                 }
               },
@@ -663,25 +681,30 @@ class _VideoMenuBottomSheetState extends State<VideoMenuBottomSheet>
                                                 imageUrl: thumbUrl,
                                                 httpHeaders: headers,
                                                 fit: BoxFit.cover,
+                                                // 优化图片加载，避免动画卡顿
+                                                memCacheWidth: 120, // 限制内存缓存大小
+                                                memCacheHeight: 160,
+                                                fadeInDuration: const Duration(milliseconds: 150), // 更快的淡入动画
+                                                fadeOutDuration: const Duration(milliseconds: 100),
                                                 placeholder: (context, url) => Container(
-                                                  color: themeService.isDarkMode 
+                                                  color: themeService.isDarkMode
                                                       ? const Color(0xFF333333)
                                                       : Colors.grey[300],
                                                   child: Icon(
                                                     Icons.movie,
-                                                    color: themeService.isDarkMode 
+                                                    color: themeService.isDarkMode
                                                         ? const Color(0xFF666666)
                                                         : Colors.grey,
                                                     size: 24,
                                                   ),
                                                 ),
                                                 errorWidget: (context, url, error) => Container(
-                                                  color: themeService.isDarkMode 
+                                                  color: themeService.isDarkMode
                                                       ? const Color(0xFF333333)
                                                       : Colors.grey[300],
                                                   child: Icon(
                                                     Icons.movie,
-                                                    color: themeService.isDarkMode 
+                                                    color: themeService.isDarkMode
                                                         ? const Color(0xFF666666)
                                                         : Colors.grey,
                                                     size: 24,
