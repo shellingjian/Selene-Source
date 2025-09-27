@@ -5,6 +5,7 @@ import 'package:chewie/chewie.dart';
 
 // ignore: implementation_imports
 import 'package:chewie/src/material/widgets/playback_speed_dialog.dart';
+import 'package:chewie/src/progress_bar.dart';
 import 'package:video_player/video_player.dart';
 
 class VideoPlayerWidget extends StatefulWidget {
@@ -253,7 +254,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   void _onVideoStateChanged() {
     if (!mounted ||
         _videoController == null ||
-        !_videoController!.value.isInitialized) return;
+        !_videoController!.value.isInitialized) {
+      return;
+    }
 
     final value = _videoController!.value;
 
@@ -391,6 +394,7 @@ class _CustomChewieControlsState extends State<CustomChewieControls> {
 
   bool _isLongPressing = false;
   double _originalPlaybackSpeed = 1.0;
+  Duration? _dragPosition; // 拖动时的位置
 
   @override
   void initState() {
@@ -564,6 +568,7 @@ class _CustomChewieControlsState extends State<CustomChewieControls> {
     if (!mounted) return;
     setState(() {
       _controlsVisible = true;
+      _dragPosition = null; // 清空拖动位置
     });
     _hideTimer?.cancel();
     // 拖拽开始也是用户交互，需要重置定时器
@@ -571,6 +576,9 @@ class _CustomChewieControlsState extends State<CustomChewieControls> {
   }
 
   void _onSeekEnd() {
+    setState(() {
+      _dragPosition = null; // 清空拖动位置
+    });
     _startHideTimer();
   }
 
@@ -714,7 +722,7 @@ class _CustomChewieControlsState extends State<CustomChewieControls> {
               child: Container(
                 height: 12,
                 margin: const EdgeInsets.symmetric(horizontal: 16),
-                child: MaterialVideoProgressBar(
+                child: CustomVideoProgressBar(
                   chewieController.videoPlayerController,
                   barHeight: 6,
                   handleHeight: 6,
@@ -735,6 +743,12 @@ class _CustomChewieControlsState extends State<CustomChewieControls> {
                     }
                     // 拖拽过程中重置定时器，避免在拖拽时自动隐藏
                     _hideTimer?.cancel();
+                  },
+                  onPositionUpdate: (duration) {
+                    // 更新拖动位置
+                    setState(() {
+                      _dragPosition = duration;
+                    });
                   },
                 ),
               ),
@@ -885,26 +899,24 @@ class _CustomChewieControlsState extends State<CustomChewieControls> {
               top: 10,
               left: 0,
               right: 0,
-              child: Container(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      '3x',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.fast_forward,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    '3x',
+                    style: TextStyle(
                       color: Colors.white,
-                      size: isFullscreen ? 64 : 48,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.fast_forward,
+                    color: Colors.white,
+                    size: isFullscreen ? 64 : 48,
+                  ),
+                ],
               ),
             ),
         ],
@@ -918,7 +930,8 @@ class _CustomChewieControlsState extends State<CustomChewieControls> {
     return AnimatedBuilder(
       animation: videoPlayerController,
       builder: (context, child) {
-        final currentPosition = videoPlayerController.value.position;
+        // 如果有拖动位置，使用拖动位置，否则使用当前播放位置
+        final currentPosition = _dragPosition ?? videoPlayerController.value.position;
         final totalDuration = videoPlayerController.value.duration;
 
         return Text(
@@ -943,5 +956,134 @@ class _CustomChewieControlsState extends State<CustomChewieControls> {
     } else {
       return '${twoDigits(minutes)}:${twoDigits(seconds)}';
     }
+  }
+}
+
+class CustomVideoProgressBar extends StatefulWidget {
+  CustomVideoProgressBar(
+    this.controller, {
+    super.key,
+    this.barHeight = 5,
+    this.handleHeight = 6,
+    ChewieProgressColors? colors,
+    this.onDragEnd,
+    this.onDragStart,
+    this.onDragUpdate,
+    this.draggableProgressBar = true,
+    this.onPositionUpdate,
+  }) : colors = colors ?? ChewieProgressColors();
+
+  final double barHeight;
+  final double handleHeight;
+  final VideoPlayerController controller;
+  final ChewieProgressColors colors;
+  final Function()? onDragStart;
+  final Function()? onDragEnd;
+  final Function()? onDragUpdate;
+  final Function(Duration)? onPositionUpdate;
+  final bool draggableProgressBar;
+
+  @override
+  State<CustomVideoProgressBar> createState() => _CustomVideoProgressBarState();
+}
+
+class _CustomVideoProgressBarState extends State<CustomVideoProgressBar> {
+  void listener() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  bool _controllerWasPlaying = false;
+  Offset? _latestDraggableOffset;
+
+  VideoPlayerController get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller.addListener(listener);
+  }
+
+  @override
+  void deactivate() {
+    controller.removeListener(listener);
+    super.deactivate();
+  }
+
+  void _seekToRelativePosition(Offset globalPosition) {
+    final position = context.calculateRelativePosition(controller.value.duration, globalPosition);
+    controller.seekTo(position);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Center(
+      child: StaticProgressBar(
+        value: controller.value,
+        colors: widget.colors,
+        barHeight: widget.barHeight,
+        handleHeight: widget.handleHeight,
+        drawShadow: true,
+        latestDraggableOffset: _latestDraggableOffset,
+      ),
+    );
+
+    return widget.draggableProgressBar
+        ? GestureDetector(
+            onHorizontalDragStart: (DragStartDetails details) {
+              if (!controller.value.isInitialized) {
+                return;
+              }
+              _controllerWasPlaying = controller.value.isPlaying;
+              if (_controllerWasPlaying) {
+                controller.pause();
+              }
+
+              widget.onDragStart?.call();
+            },
+            onHorizontalDragUpdate: (DragUpdateDetails details) {
+              if (!controller.value.isInitialized) {
+                return;
+              }
+              _latestDraggableOffset = details.globalPosition;
+
+              // 计算当前拖动位置并通知外部
+              final dragPosition = context.calculateRelativePosition(controller.value.duration, details.globalPosition);
+              widget.onPositionUpdate?.call(dragPosition);
+
+              listener();
+              widget.onDragUpdate?.call();
+            },
+            onHorizontalDragEnd: (DragEndDetails details) {
+              if (_controllerWasPlaying) {
+                controller.play();
+              }
+
+              if (_latestDraggableOffset != null) {
+                _seekToRelativePosition(_latestDraggableOffset!);
+                _latestDraggableOffset = null;
+              }
+
+              widget.onDragEnd?.call();
+            },
+            onTapDown: (TapDownDetails details) {
+              if (!controller.value.isInitialized) {
+                return;
+              }
+              _seekToRelativePosition(details.globalPosition);
+            },
+            child: child,
+          )
+        : child;
+  }
+}
+
+extension RelativePositionExtensions on BuildContext {
+  Duration calculateRelativePosition(Duration videoDuration, Offset globalPosition) {
+    final box = findRenderObject()! as RenderBox;
+    final Offset tapPos = box.globalToLocal(globalPosition);
+    final double relative = (tapPos.dx / box.size.width).clamp(0, 1);
+    final Duration position = videoDuration * relative;
+    return position;
   }
 }
