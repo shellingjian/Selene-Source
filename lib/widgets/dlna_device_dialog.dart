@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:dlna_dart/dlna.dart';
 
 class DLNADeviceDialog extends StatefulWidget {
-  const DLNADeviceDialog({super.key});
+  final String currentUrl;
+
+  const DLNADeviceDialog({super.key, required this.currentUrl});
 
   @override
   State<DLNADeviceDialog> createState() => _DLNADeviceDialogState();
@@ -265,8 +267,8 @@ class _DLNADeviceDialogState extends State<DLNADeviceDialog> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('连接设备'),
-        content: Text('正在连接到 ${device.info.friendlyName}...'),
+        title: const Text('投屏'),
+        content: Text('正在投屏到 ${device.info.friendlyName}...'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -275,21 +277,44 @@ class _DLNADeviceDialogState extends State<DLNADeviceDialog> {
         ],
       ),
     );
-    
-    // 模拟连接过程
-    Timer(const Duration(seconds: 2), () {
+
+    // 执行投屏操作
+    _castToDevice(device);
+  }
+
+  void _castToDevice(DLNADevice device) async {
+    try {
+      // 设置设备URL并播放
+      print('widget.currentUrl: ${widget.currentUrl}');
+      device.setUrl(widget.currentUrl);
+      device.play();
+
       if (mounted) {
         Navigator.of(context).pop(); // 关闭连接对话框
         Navigator.of(context).pop(); // 关闭设备选择对话框
-        
-        // 显示连接成功提示
+
+        // 显示投屏成功提示
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('已连接到 ${device.info.friendlyName}'),
+            content: Text('正在投屏到 ${device.info.friendlyName}'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // 关闭连接对话框
+
+        // 显示投屏失败提示
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('投屏失败: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 }

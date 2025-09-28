@@ -98,12 +98,16 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   bool _hasCompleted = false; // 防止重复触发完成事件
   final List<VoidCallback> _progressListeners = []; // 进度监听器列表
   double _cachedPlaybackSpeed = 1.0; // 暂存的播放速率
+  String _currentVideoUrl = ''; // 当前视频URL
 
   @override
   void initState() {
     super.initState();
     // 添加应用生命周期观察者
     WidgetsBinding.instance.addObserver(this);
+
+    // 初始化当前视频URL
+    _currentVideoUrl = widget.videoUrl;
 
     // 设置初始屏幕方向为竖屏
     _setPortraitOrientation();
@@ -144,6 +148,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   Future<void> updateVideoUrl(String newVideoUrl, {Duration? startAt}) async {
     if (!mounted) return;
     if (newVideoUrl.isEmpty) return;
+
+    // 更新当前视频URL
+    setState(() {
+      _currentVideoUrl = newVideoUrl;
+    });
 
     // 保存当前全屏状态和播放速率
     final wasFullscreen = _isFullscreen;
@@ -196,6 +205,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
             onNextEpisode: widget.onNextEpisode,
             onPause: widget.onPause,
             playerController: VideoPlayerWidgetController._(this),
+            videoUrl: _currentVideoUrl,
           ),
         );
 
@@ -372,6 +382,7 @@ class CustomChewieControls extends StatefulWidget {
   final VoidCallback? onNextEpisode;
   final VoidCallback? onPause;
   final VideoPlayerWidgetController? playerController;
+  final String videoUrl;
 
   const CustomChewieControls({
     super.key,
@@ -380,6 +391,7 @@ class CustomChewieControls extends StatefulWidget {
     this.onNextEpisode,
     this.onPause,
     this.playerController,
+    required this.videoUrl,
   });
 
   @override
@@ -694,7 +706,7 @@ class _CustomChewieControlsState extends State<CustomChewieControls> {
     if (mounted && _chewieController?.isFullScreen != true) {
       await showDialog(
         context: context,
-        builder: (context) => const DLNADeviceDialog(),
+        builder: (context) => DLNADeviceDialog(currentUrl: widget.videoUrl),
       );
     }
   }
