@@ -352,6 +352,34 @@ class _CustomBetterPlayerControlsState
             ),
           ),
         ),
+        // 长按倍速提示
+        if (_isLongPressing)
+          Positioned(
+            top: 10,
+            left: 0,
+            right: 0,
+            child: Container(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    '2x',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.fast_forward,
+                    color: Colors.white,
+                    size: isFullscreen ? 64 : 48,
+                  ),
+                ],
+              ),
+            ),
+          ),
         if (_controlsVisible)
           Positioned(
             top: isFullscreen ? 8 : 4,

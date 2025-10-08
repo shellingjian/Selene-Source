@@ -6,7 +6,7 @@ import 'dlna_device_dialog.dart';
 import 'custom_better_player_controls.dart';
 
 class VideoPlayerWidget extends StatefulWidget {
-  final String videoUrl;
+  final BetterPlayerDataSource? dataSource;
   final double aspectRatio;
   final VoidCallback? onBackPressed;
   final Function(VideoPlayerWidgetController)? onControllerCreated;
@@ -18,7 +18,7 @@ class VideoPlayerWidget extends StatefulWidget {
 
   const VideoPlayerWidget({
     super.key,
-    required this.videoUrl,
+    this.dataSource,
     this.aspectRatio = 16 / 9,
     this.onBackPressed,
     this.onControllerCreated,
@@ -39,9 +39,9 @@ class VideoPlayerWidgetController {
 
   VideoPlayerWidgetController._(this._state);
 
-  /// 动态更新视频播放 URL
-  Future<void> updateVideoUrl(String newVideoUrl, {Duration? startAt}) async {
-    await _state.updateVideoUrl(newVideoUrl, startAt: startAt);
+  /// 动态更新视频数据源
+  Future<void> updateDataSource(BetterPlayerDataSource dataSource, {Duration? startAt}) async {
+    await _state.updateDataSource(dataSource, startAt: startAt);
   }
 
   /// 跳转到指定进度
@@ -94,14 +94,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   bool _hasCompleted = false;
   final List<VoidCallback> _progressListeners = [];
   double _cachedPlaybackSpeed = 1.0;
-  String _currentVideoUrl = '';
+  BetterPlayerDataSource? _currentDataSource;
   OverlayEntry? _fullscreenOverlay;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _currentVideoUrl = widget.videoUrl;
+    _currentDataSource = widget.dataSource;
     _setPortraitOrientation();
     _initializePlayer();
     widget.onControllerCreated?.call(VideoPlayerWidgetController._(this));
@@ -133,14 +133,10 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   Future<void> _initializePlayer() async {
     if (!mounted) return;
     
-    // 如果 _currentVideoUrl 为空则停止初始化直接返回
-    if (_currentVideoUrl.isEmpty) return;
+    // 如果 _currentDataSource 为 null 则停止初始化直接返回
+    if (_currentDataSource == null) return;
 
-    final betterPlayerDataSource = BetterPlayerDataSource(
-      BetterPlayerDataSourceType.network,
-      _currentVideoUrl,
-      videoFormat: BetterPlayerVideoFormat.hls
-    );
+    final betterPlayerDataSource = _currentDataSource!;
 
     final betterPlayerConfiguration = BetterPlayerConfiguration(
       autoPlay: true,
@@ -160,7 +156,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
             onNextEpisode: widget.onNextEpisode,
             onPause: widget.onPause,
             playerController: VideoPlayerWidgetController._(this),
-            videoUrl: _currentVideoUrl,
+            videoUrl: _currentDataSource?.url ?? '',
             isLastEpisode: widget.isLastEpisode,
           );
         },
@@ -196,8 +192,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
     setState(() {
       _isInitialized = true;
     });
-
-    widget.onReady?.call();
   }
 
   void _onPlayerEvent(BetterPlayerEvent event) {
@@ -212,6 +206,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
       }
     }
 
+    // 监听播放器初始化完成事件
+    if (event.betterPlayerEventType == BetterPlayerEventType.initialized) {
+      widget.onReady?.call();
+    }
+
     // 检查视频是否播放完成
     if (event.betterPlayerEventType == BetterPlayerEventType.finished) {
       if (!_hasCompleted) {
@@ -221,12 +220,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
     }
   }
 
-  Future<void> updateVideoUrl(String newVideoUrl, {Duration? startAt}) async {
+  Future<void> updateDataSource(BetterPlayerDataSource dataSource, {Duration? startAt}) async {
     if (!mounted) return;
-    if (newVideoUrl.isEmpty) return;
 
     setState(() {
-      _currentVideoUrl = newVideoUrl;
+      _currentDataSource = dataSource;
     });
 
     // 如果播放器已经初始化完成则直接 change Data Source 即可，无需重复初始化
@@ -236,13 +234,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
           _cachedPlaybackSpeed = _betterPlayerController!.videoPlayerController!.value.speed;
         }
 
-        final betterPlayerDataSource = BetterPlayerDataSource(
-          BetterPlayerDataSourceType.network,
-          newVideoUrl,
-          videoFormat: BetterPlayerVideoFormat.hls
-        );
-
-        await _betterPlayerController!.setupDataSource(betterPlayerDataSource);
+        await _betterPlayerController!.setupDataSource(dataSource);
         
         if (startAt != null) {
           await _betterPlayerController!.seekTo(startAt);
@@ -253,8 +245,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
         setState(() {
           _hasCompleted = false;
         });
-
-        widget.onReady?.call();
       } catch (e) {
         debugPrint('Error changing data source: $e');
       }

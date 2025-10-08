@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:awesome_video_player/awesome_video_player.dart';
 import '../widgets/video_player_widget.dart';
 import '../widgets/video_card.dart';
 import '../services/api_service.dart';
@@ -485,10 +486,15 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
     });
   }
 
-  /// 动态更新视频 URL
+  /// 动态更新视频数据源
   Future<void> updateVideoUrl(String newUrl, {Duration? startAt}) async {
     try {
-      await _videoPlayerController?.updateVideoUrl(newUrl, startAt: startAt);
+      final dataSource = BetterPlayerDataSource(
+        BetterPlayerDataSourceType.network,
+        newUrl,
+        videoFormat: BetterPlayerVideoFormat.hls,
+      );
+      await _videoPlayerController?.updateDataSource(dataSource, startAt: startAt);
     } catch (e) {
       // 静默处理错误
     }
@@ -2089,7 +2095,7 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
                 Stack(
                   children: [
                     VideoPlayerWidget(
-                      videoUrl: '',
+                      dataSource: null,
                       aspectRatio: 16 / 9,
                       onBackPressed: _onBackPressed,
                       onControllerCreated: (controller) {
