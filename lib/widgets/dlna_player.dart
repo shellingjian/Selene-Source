@@ -22,7 +22,6 @@ class DLNAPlayerController {
 
 class DLNAPlayer extends StatefulWidget {
   final DLNADevice device;
-  final double aspectRatio;
   final VoidCallback? onBackPressed;
   final VoidCallback? onNextEpisode;
   final bool isLastEpisode;
@@ -38,7 +37,6 @@ class DLNAPlayer extends StatefulWidget {
   const DLNAPlayer({
     super.key,
     required this.device,
-    this.aspectRatio = 16 / 9,
     this.onBackPressed,
     this.onNextEpisode,
     this.isLastEpisode = false,
@@ -139,8 +137,10 @@ class _DLNAPlayerState extends State<DLNAPlayer> {
         }
 
         // 检查视频是否播放完成（当前位置 >= 总时长 - 1秒）
-        if (!_isLoading && _duration.inSeconds > 0 &&
-            _position.inSeconds >= _duration.inSeconds - 1 && _isPlaying) {
+        if (!_isLoading &&
+            _duration.inSeconds > 0 &&
+            _position.inSeconds >= _duration.inSeconds - 1 &&
+            _isPlaying) {
           debugPrint('DLNA视频播放完成');
           widget.device.pause();
           widget.onVideoCompleted?.call();
@@ -206,7 +206,7 @@ class _DLNAPlayerState extends State<DLNAPlayer> {
     });
 
     // 设置新的 URL
-    widget.device.setUrl(url, title:title);
+    widget.device.setUrl(url, title: title);
 
     // 开始播放
     widget.device.play();
@@ -224,25 +224,22 @@ class _DLNAPlayerState extends State<DLNAPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: widget.aspectRatio,
-      child: Container(
-        color: Colors.black,
-        child: DLNAPlayerControls(
-          device: widget.device,
-          position: _position,
-          duration: _duration,
-          isPlaying: _isPlaying,
-          isLoading: _isLoading,
-          onBackPressed: widget.onBackPressed,
-          onNextEpisode: widget.onNextEpisode,
-          isLastEpisode: widget.isLastEpisode,
-          onPlayPause: _togglePlayPause,
-          onStop: _stop,
-          onSeek: _seekTo,
-          onVolumeChange: _setVolume,
-          onChangeDevice: widget.onChangeDevice,
-        ),
+    return Container(
+      color: Colors.black,
+      child: DLNAPlayerControls(
+        device: widget.device,
+        position: _position,
+        duration: _duration,
+        isPlaying: _isPlaying,
+        isLoading: _isLoading,
+        onBackPressed: widget.onBackPressed,
+        onNextEpisode: widget.onNextEpisode,
+        isLastEpisode: widget.isLastEpisode,
+        onPlayPause: _togglePlayPause,
+        onStop: _stop,
+        onSeek: _seekTo,
+        onVolumeChange: _setVolume,
+        onChangeDevice: widget.onChangeDevice,
       ),
     );
   }

@@ -944,7 +944,6 @@ class _PlayerScreenState extends State<PlayerScreen>
         if (_isCasting && _dlnaDevice != null)
           DLNAPlayer(
             device: _dlnaDevice,
-            aspectRatio: 16 / 9,
             onBackPressed: _onBackPressed,
             onNextEpisode: _onNextEpisode,
             onVideoCompleted: _onVideoCompleted,
@@ -2617,7 +2616,10 @@ class _PlayerScreenState extends State<PlayerScreen>
           height: MediaQuery.maybeOf(context)?.padding.top ?? 0,
           color: Colors.black,
         ),
-        _buildPlayerWidget(),
+        AspectRatio(
+          aspectRatio: 16 / 9,
+          child: _buildPlayerWidget(),
+        ),
         Expanded(
           child: _buildVideoDetailSection(theme),
         ),
@@ -2637,7 +2639,7 @@ class _PlayerScreenState extends State<PlayerScreen>
           height: statusBarHeight,
           color: Colors.black,
         ),
-        SizedBox(
+        Container(
           height: playerHeight,
           width: double.infinity,
           child: _buildPlayerWidget(),
@@ -2663,13 +2665,23 @@ class _PlayerScreenState extends State<PlayerScreen>
               // 左侧：播放器和详情（65%）
               Expanded(
                 flex: 65,
-                child: Column(
-                  children: [
-                    _buildPlayerWidget(),
-                    Expanded(
-                      child: _buildVideoDetailSection(theme),
-                    ),
-                  ],
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // 根据可用宽度计算 16:9 的高度
+                    final playerHeight = constraints.maxWidth / (16 / 9);
+                    return Column(
+                      children: [
+                        SizedBox(
+                          height: playerHeight,
+                          width: constraints.maxWidth,
+                          child: _buildPlayerWidget(),
+                        ),
+                        Expanded(
+                          child: _buildVideoDetailSection(theme),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
               // 右侧：详情面板（35%）
