@@ -94,6 +94,7 @@ class _CustomBetterPlayerControlsState
 
     // 监听全屏状态变化
     if (event.betterPlayerEventType == BetterPlayerEventType.openFullscreen) {
+      // 进入全屏时通知父组件
       widget.onFullscreenChange(true);
       // 触发重建以更新UI
       if (mounted) {
@@ -101,6 +102,7 @@ class _CustomBetterPlayerControlsState
       }
     } else if (event.betterPlayerEventType ==
         BetterPlayerEventType.hideFullscreen) {
+      // 退出全屏时通知父组件（包括系统返回键触发的退出）
       widget.onFullscreenChange(false);
       // 触发重建以更新UI
       if (mounted) {

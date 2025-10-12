@@ -288,15 +288,27 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   }
 
   void _handleFullscreenChange(bool isFullscreen) {
-    if (_isFullscreen != isFullscreen) {
+    // 检查当前控制器的实际全屏状态
+    final controllerIsFullscreen = _betterPlayerController?.isFullScreen ?? false;
+    
+    if (isFullscreen && !controllerIsFullscreen) {
+      // 需要进入全屏
       setState(() {
-        _isFullscreen = isFullscreen;
+        _isFullscreen = true;
       });
-
-      if (isFullscreen) {
-        _enterFullscreen();
-      } else {
-        _exitFullscreen();
+      _enterFullscreen();
+    } else if (!isFullscreen && controllerIsFullscreen) {
+      // 需要退出全屏
+      setState(() {
+        _isFullscreen = false;
+      });
+      _exitFullscreen();
+    } else if (!isFullscreen && !controllerIsFullscreen) {
+      // 系统返回键已经退出全屏，只需要同步状态
+      if (_isFullscreen) {
+        setState(() {
+          _isFullscreen = false;
+        });
       }
     }
   }

@@ -287,7 +287,7 @@ class DoubanService {
               // 过滤掉空的评分
               final rate = recommendRate?.isNotEmpty == true ? recommendRate : null;
               
-              if (recommendId.isNotEmpty && title.isNotEmpty) {
+              if (recommendId.isNotEmpty && title.isNotEmpty && posterUrl.isNotEmpty) {
                 recommends.add(DoubanRecommendItem(
                   id: recommendId,
                   title: title,
