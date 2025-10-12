@@ -115,25 +115,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _currentDataSource = widget.dataSource;
-    _setPortraitOrientation();
     _initializePlayer();
     widget.onControllerCreated?.call(VideoPlayerWidgetController._(this));
-  }
-
-  void _setPortraitOrientation() {
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]);
-  }
-
-  void _restoreOrientation() {
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
   }
 
   Future<void> _initializePlayer({Duration? startAt}) async {
@@ -199,7 +182,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
           setState(() {
             _isFullscreen = false;
           });
-          _setPortraitOrientation();
         }
       }
     });
@@ -327,7 +309,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   }
 
   void _exitFullscreen() {
-    _setPortraitOrientation();
     _betterPlayerController?.exitFullScreen();
   }
 
@@ -337,7 +318,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
       Navigator.of(context).pop();
     }
     WidgetsBinding.instance.removeObserver(this);
-    _restoreOrientation();
     _progressListeners.clear();
     _betterPlayerController?.dispose();
     super.dispose();

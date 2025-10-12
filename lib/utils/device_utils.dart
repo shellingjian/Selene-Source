@@ -12,4 +12,17 @@ class DeviceUtils {
     final double width = MediaQuery.of(context).size.width;
     return width >= tabletMinWidth;
   }
+
+  /// 判断当前设备是否是平板竖屏
+  ///
+  /// 逻辑：isTablet 且宽高比小于等于 1.2
+  static bool isPortraitTablet(BuildContext context) {
+    if (!isTablet(context)) {
+      return false;
+    }
+
+    final Size size = MediaQuery.of(context).size;
+    final double aspectRatio = size.width / size.height;
+    return aspectRatio <= 1.2;
+  }
 }

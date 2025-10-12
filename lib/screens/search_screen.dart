@@ -622,7 +622,7 @@ class _SearchScreenState extends State<SearchScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.only(left: 22.0, right: 16.0),
           child: Row(
@@ -853,7 +853,7 @@ class _SearchScreenState extends State<SearchScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         // 标题行 - 有padding
         Padding(
           padding: const EdgeInsets.only(left: 22.0, right: 16.0),
