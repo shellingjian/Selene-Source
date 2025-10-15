@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:awesome_video_player/awesome_video_player.dart';
 import '../widgets/mobile_video_player_widget.dart';
+import '../widgets/pc_video_player_widget.dart';
 import '../widgets/video_card.dart';
 import '../services/api_service.dart';
 import '../services/m3u8_service.dart';
@@ -86,6 +87,9 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   // MobileVideoPlayerWidget 的控制器
   MobileVideoPlayerWidgetController? _mobileVideoPlayerController;
+
+  // PcVideoPlayerWidget 的控制器
+  PcVideoPlayerWidgetController? _pcVideoPlayerController;
 
   // 收藏状态
   bool _isFavorite = false;
@@ -433,10 +437,16 @@ class _PlayerScreenState extends State<PlayerScreen>
         currentPosition = _dlnaCurrentPosition;
         duration = _dlnaCurrentDuration;
       } else {
-        // 本地播放：从视频播放器获取
-        if (_mobileVideoPlayerController == null) return;
-        currentPosition = _mobileVideoPlayerController!.currentPosition;
-        duration = _mobileVideoPlayerController!.duration;
+        // 本地播放：根据设备类型从对应播放器获取
+        if (DeviceUtils.isPC()) {
+          if (_pcVideoPlayerController == null) return;
+          currentPosition = _pcVideoPlayerController!.currentPosition;
+          duration = _pcVideoPlayerController!.duration;
+        } else {
+          if (_mobileVideoPlayerController == null) return;
+          currentPosition = _mobileVideoPlayerController!.currentPosition;
+          duration = _mobileVideoPlayerController!.duration;
+        }
       }
 
       // 提前获取所有需要的参数，避免异步执行时参数被改变
@@ -580,9 +590,14 @@ class _PlayerScreenState extends State<PlayerScreen>
         _dlnaPlayerController?.updateVideoUrl(newUrl, formattedTitle,
             startAt: startAt);
       } else {
-        // 本地播放：调用视频播放器的 updateDataSource
-        await _mobileVideoPlayerController?.updateDataSource(newUrl,
-            startAt: startAt);
+        // 本地播放：根据设备类型调用对应播放器的 updateDataSource
+        if (DeviceUtils.isPC()) {
+          await _pcVideoPlayerController?.updateDataSource(newUrl,
+              startAt: startAt);
+        } else {
+          await _mobileVideoPlayerController?.updateDataSource(newUrl,
+              startAt: startAt);
+        }
       }
     } catch (e) {
       // 静默处理错误
@@ -592,7 +607,11 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// 跳转到指定进度
   Future<void> seekToProgress(Duration position) async {
     try {
-      await _mobileVideoPlayerController?.seekTo(position);
+      if (DeviceUtils.isPC()) {
+        await _pcVideoPlayerController?.seekTo(position);
+      } else {
+        await _mobileVideoPlayerController?.seekTo(position);
+      }
     } catch (e) {
       // 静默处理错误
     }
@@ -609,8 +628,12 @@ class _PlayerScreenState extends State<PlayerScreen>
       // 投屏状态：从 DLNA 播放器获取
       return _dlnaCurrentPosition;
     } else {
-      // 本地播放：从视频播放器获取
-      return _mobileVideoPlayerController?.currentPosition;
+      // 本地播放：根据设备类型从对应播放器获取
+      if (DeviceUtils.isPC()) {
+        return _pcVideoPlayerController?.currentPosition;
+      } else {
+        return _mobileVideoPlayerController?.currentPosition;
+      }
     }
   }
 
@@ -633,18 +656,33 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   /// 添加视频播放进度监听器
   void _addVideoProgressListener() {
-    if (_mobileVideoPlayerController != null) {
-      // 添加进度监听器
-      _mobileVideoPlayerController!.addProgressListener(_onVideoProgressUpdate);
+    if (DeviceUtils.isPC()) {
+      if (_pcVideoPlayerController != null) {
+        // 添加进度监听器
+        _pcVideoPlayerController!.addProgressListener(_onVideoProgressUpdate);
+      }
+    } else {
+      if (_mobileVideoPlayerController != null) {
+        // 添加进度监听器
+        _mobileVideoPlayerController!.addProgressListener(_onVideoProgressUpdate);
+      }
     }
   }
 
   /// 移除视频播放进度监听器
   void _removeVideoProgressListener() {
-    if (_mobileVideoPlayerController != null) {
-      // 移除进度监听器
-      _mobileVideoPlayerController!
-          .removeProgressListener(_onVideoProgressUpdate);
+    if (DeviceUtils.isPC()) {
+      if (_pcVideoPlayerController != null) {
+        // 移除进度监听器
+        _pcVideoPlayerController!
+            .removeProgressListener(_onVideoProgressUpdate);
+      }
+    } else {
+      if (_mobileVideoPlayerController != null) {
+        // 移除进度监听器
+        _mobileVideoPlayerController!
+            .removeProgressListener(_onVideoProgressUpdate);
+      }
     }
   }
 
@@ -931,14 +969,38 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   /// 构建播放器组件
   Widget _buildPlayerWidget() {
+    final isPC = DeviceUtils.isPC();
+    
     return Stack(
       children: [
-        if (!_isCasting)
+        if (!_isCasting && !isPC)
           MobileVideoPlayerWidget(
             url: null,
             onBackPressed: _onBackPressed,
             onControllerCreated: (controller) {
               _mobileVideoPlayerController = controller;
+            },
+            onReady: _onVideoPlayerReady,
+            onNextEpisode: _onNextEpisode,
+            onVideoCompleted: _onVideoCompleted,
+            onPause: () {
+              // 暂停时保存进度
+              _saveProgress(force: true);
+            },
+            isLastEpisode: currentDetail != null &&
+                currentEpisodeIndex >= currentDetail!.episodes.length - 1,
+            onCastStarted: _onCastStarted,
+            videoTitle: videoTitle,
+            currentEpisodeIndex: currentEpisodeIndex,
+            totalEpisodes: totalEpisodes,
+            sourceName: currentDetail?.sourceName ?? currentSource,
+          ),
+        if (!_isCasting && isPC)
+          PcVideoPlayerWidget(
+            url: null,
+            onBackPressed: _onBackPressed,
+            onControllerCreated: (controller) {
+              _pcVideoPlayerController = controller;
             },
             onReady: _onVideoPlayerReady,
             onNextEpisode: _onNextEpisode,
@@ -990,15 +1052,22 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// 投屏开始回调
   void _onCastStarted(dynamic device) {
     // 保存当前播放位置
-    final currentPos = _mobileVideoPlayerController?.currentPosition;
+    final currentPos = DeviceUtils.isPC()
+        ? _pcVideoPlayerController?.currentPosition
+        : _mobileVideoPlayerController?.currentPosition;
 
     setState(() {
       _isCasting = true;
       _dlnaDevice = device;
       _castStartPosition = currentPos;
       // 销毁视频播放器
-      _mobileVideoPlayerController?.dispose();
-      _mobileVideoPlayerController = null;
+      if (DeviceUtils.isPC()) {
+        _pcVideoPlayerController?.dispose();
+        _pcVideoPlayerController = null;
+      } else {
+        _mobileVideoPlayerController?.dispose();
+        _mobileVideoPlayerController = null;
+      }
     });
   }
 
