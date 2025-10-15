@@ -93,8 +93,6 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
   Timer? _hideTimer;
   bool _controlsVisible = true;
   Size? _screenSize;
-  bool _isLongPressing = false;
-  double _originalPlaybackSpeed = 1.0;
   Duration? _dragPosition;
   bool _isSeekingViaSwipe = false;
   double _swipeStartX = 0;
@@ -119,7 +117,7 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
       if (!mounted) return;
 
       if (playing) {
-        if (_controlsVisible && !_isLongPressing) {
+        if (_controlsVisible) {
           _startHideTimer();
         }
       } else {
@@ -161,29 +159,6 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
     } catch (e) {
       // 如果无法安全获取状态，保持当前状态不变
     }
-  }
-
-  void _onLongPressStart(LongPressStartDetails details) {
-    if (!widget.player.state.playing) {
-      return;
-    }
-
-    setState(() {
-      _isLongPressing = true;
-      _originalPlaybackSpeed = widget.player.state.rate;
-      widget.player.setRate(2.0);
-    });
-  }
-
-  void _onLongPressEnd(LongPressEndDetails details) {
-    if (!_isLongPressing) {
-      return;
-    }
-
-    setState(() {
-      _isLongPressing = false;
-      widget.player.setRate(_originalPlaybackSpeed);
-    });
   }
 
   @override
@@ -418,16 +393,9 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
       },
       child: Stack(
         children: [
-          // 背景层 - 处理长按和滑动手势
+          // 背景层 - 处理滑动手势
           Positioned.fill(
             child: GestureDetector(
-              onLongPressStart: _onLongPressStart,
-              onLongPressEnd: _onLongPressEnd,
-              onLongPressCancel: () {
-                if (_isLongPressing) {
-                  _onLongPressEnd(const LongPressEndDetails());
-                }
-              },
               onHorizontalDragStart: _onSwipeStart,
               onHorizontalDragUpdate: _onSwipeUpdate,
               onHorizontalDragEnd: _onSwipeEnd,
@@ -439,32 +407,6 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
               ),
             ),
           ),
-          // 长按倍速提示
-          if (_isLongPressing)
-            Positioned(
-              top: 10,
-              left: 0,
-              right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    '2x',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.fast_forward,
-                    color: Colors.white,
-                    size: _isFullscreen ? 32 : 28,
-                  ),
-                ],
-              ),
-            ),
           // 顶部返回按钮
           Positioned(
             top: _isFullscreen ? 8 : 4,
