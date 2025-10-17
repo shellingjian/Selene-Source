@@ -123,6 +123,12 @@ class _PlayerScreenState extends State<PlayerScreen>
   int? _lastSavePosition; // 上次保存的播放位置（秒）
   static const Duration _saveProgressInterval = Duration(seconds: 10);
 
+  // 网页全屏状态
+  bool _isWebFullscreen = false;
+  
+  // 播放器的 GlobalKey，用于保持播放器状态
+  final GlobalKey _playerKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -1055,6 +1061,11 @@ class _PlayerScreenState extends State<PlayerScreen>
             currentEpisodeIndex: currentEpisodeIndex,
             totalEpisodes: totalEpisodes,
             sourceName: currentDetail?.sourceName ?? currentSource,
+            onWebFullscreenChanged: (isWebFullscreen) {
+              setState(() {
+                _isWebFullscreen = isWebFullscreen;
+              });
+            },
           ),
         if (_isCasting && _dlnaDevice != null)
           DLNAPlayer(
@@ -2587,16 +2598,19 @@ class _PlayerScreenState extends State<PlayerScreen>
           ),
           child: Stack(
             children: [
-              // 主要内容
-              if (_isTablet && !_isPortraitTablet)
-                // 平板横屏模式：左右布局
-                _buildTabletLandscapeLayout(theme)
-              else if (_isPortraitTablet)
-                // 平板竖屏模式：上下布局，播放器占50%高度
-                _buildPortraitTabletLayout(theme)
-              else
-                // 手机模式：保持原有布局
-                _buildPhoneLayout(theme),
+              // 主要内容（不包含播放器）
+              if (!_isWebFullscreen)
+                if (_isTablet && !_isPortraitTablet)
+                  // 平板横屏模式：左右布局
+                  _buildTabletLandscapeLayout(theme)
+                else if (_isPortraitTablet)
+                  // 平板竖屏模式：上下布局，播放器占50%高度
+                  _buildPortraitTabletLayout(theme)
+                else
+                  // 手机模式：保持原有布局
+                  _buildPhoneLayout(theme),
+              // 播放器层（使用 Positioned 控制位置和大小）
+              _buildPlayerLayer(theme),
               // 错误覆盖层
               if (_showError && _errorMessage != null)
                 _buildErrorOverlay(theme),
@@ -2609,10 +2623,99 @@ class _PlayerScreenState extends State<PlayerScreen>
     );
   }
 
-  /// 构建手机模式布局
+  /// 构建播放器层（使用 Positioned 控制位置和大小）
+  Widget _buildPlayerLayer(ThemeData theme) {
+    final statusBarHeight = MediaQuery.maybeOf(context)?.padding.top ?? 0;
+    final macOSPadding = DeviceUtils.isMacOS() ? 24.0 : 0.0;
+    final topOffset = statusBarHeight + macOSPadding;
+
+    if (_isWebFullscreen) {
+      // 网页全屏模式：播放器占据整个屏幕（保留顶部安全区域）
+      return Positioned(
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        child: Column(
+          children: [
+            // 顶部安全区域
+            Container(
+              height: topOffset,
+              color: Colors.black,
+            ),
+            // 播放器
+            Expanded(
+              child: Container(
+                key: _playerKey,
+                color: Colors.black,
+                child: _buildPlayerWidget(),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // 非网页全屏模式：根据不同布局计算播放器位置
+      if (_isTablet && !_isPortraitTablet) {
+        // 平板横屏模式：播放器在左侧65%区域
+        final screenWidth = MediaQuery.of(context).size.width;
+        final screenHeight = MediaQuery.of(context).size.height;
+        final leftWidth = screenWidth * 0.65;
+        final playerHeight = leftWidth / (16 / 9);
+
+        return Positioned(
+          top: topOffset,
+          left: 0,
+          width: leftWidth,
+          height: playerHeight,
+          child: Container(
+            key: _playerKey,
+            color: Colors.black,
+            child: _buildPlayerWidget(),
+          ),
+        );
+      } else if (_isPortraitTablet) {
+        // 平板竖屏模式：播放器占50%高度
+        final screenHeight = MediaQuery.of(context).size.height;
+        final playerHeight = (screenHeight - topOffset) * 0.5;
+
+        return Positioned(
+          top: topOffset,
+          left: 0,
+          right: 0,
+          height: playerHeight,
+          child: Container(
+            key: _playerKey,
+            color: Colors.black,
+            child: _buildPlayerWidget(),
+          ),
+        );
+      } else {
+        // 手机模式：16:9 比例
+        final screenWidth = MediaQuery.of(context).size.width;
+        final playerHeight = screenWidth / (16 / 9);
+
+        return Positioned(
+          top: topOffset,
+          left: 0,
+          right: 0,
+          height: playerHeight,
+          child: Container(
+            key: _playerKey,
+            color: Colors.black,
+            child: _buildPlayerWidget(),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 构建手机模式布局（不包含播放器）
   Widget _buildPhoneLayout(ThemeData theme) {
     final statusBarHeight = MediaQuery.maybeOf(context)?.padding.top ?? 0;
     final macOSPadding = DeviceUtils.isMacOS() ? 24.0 : 0.0;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final playerHeight = screenWidth / (16 / 9);
 
     return Column(
       children: [
@@ -2620,10 +2723,8 @@ class _PlayerScreenState extends State<PlayerScreen>
           height: statusBarHeight + macOSPadding,
           color: Colors.black,
         ),
-        AspectRatio(
-          aspectRatio: 16 / 9,
-          child: _buildPlayerWidget(),
-        ),
+        // 播放器占位空间
+        SizedBox(height: playerHeight),
         Expanded(
           child: _buildVideoDetailSection(theme),
         ),
@@ -2631,7 +2732,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     );
   }
 
-  /// 构建平板竖屏模式布局
+  /// 构建平板竖屏模式布局（不包含播放器）
   Widget _buildPortraitTabletLayout(ThemeData theme) {
     final screenHeight = MediaQuery.of(context).size.height;
     final statusBarHeight = MediaQuery.of(context).padding.top;
@@ -2644,11 +2745,8 @@ class _PlayerScreenState extends State<PlayerScreen>
           height: statusBarHeight + macOSPadding,
           color: Colors.black,
         ),
-        Container(
-          height: playerHeight,
-          width: double.infinity,
-          child: _buildPlayerWidget(),
-        ),
+        // 播放器占位空间
+        SizedBox(height: playerHeight),
         Expanded(
           child: _buildVideoDetailSection(theme),
         ),
@@ -2656,10 +2754,13 @@ class _PlayerScreenState extends State<PlayerScreen>
     );
   }
 
-  /// 构建平板横屏模式布局
+  /// 构建平板横屏模式布局（不包含播放器）
   Widget _buildTabletLandscapeLayout(ThemeData theme) {
     final statusBarHeight = MediaQuery.maybeOf(context)?.padding.top ?? 0;
     final macOSPadding = DeviceUtils.isMacOS() ? 24.0 : 0.0;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final leftWidth = screenWidth * 0.65;
+    final playerHeight = leftWidth / (16 / 9);
 
     return Column(
       children: [
@@ -2673,23 +2774,14 @@ class _PlayerScreenState extends State<PlayerScreen>
               // 左侧：播放器和详情（65%）
               Expanded(
                 flex: 65,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    // 根据可用宽度计算 16:9 的高度
-                    final playerHeight = constraints.maxWidth / (16 / 9);
-                    return Column(
-                      children: [
-                        SizedBox(
-                          height: playerHeight,
-                          width: constraints.maxWidth,
-                          child: _buildPlayerWidget(),
-                        ),
-                        Expanded(
-                          child: _buildVideoDetailSection(theme),
-                        ),
-                      ],
-                    );
-                  },
+                child: Column(
+                  children: [
+                    // 播放器占位空间
+                    SizedBox(height: playerHeight),
+                    Expanded(
+                      child: _buildVideoDetailSection(theme),
+                    ),
+                  ],
                 ),
               ),
               // 右侧：详情面板（35%）

@@ -66,6 +66,7 @@ class CustomMediaKitControls extends StatefulWidget {
   final int? totalEpisodes;
   final String? sourceName;
   final Function(bool isFullscreen)? onDLNAButtonPressed;
+  final Function(bool isWebFullscreen)? onWebFullscreenChanged;
 
   const CustomMediaKitControls({
     super.key,
@@ -84,6 +85,7 @@ class CustomMediaKitControls extends StatefulWidget {
     this.totalEpisodes,
     this.sourceName,
     this.onDLNAButtonPressed,
+    this.onWebFullscreenChanged,
   });
 
   @override
@@ -101,6 +103,7 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
   StreamSubscription? _playingSubscription;
   StreamSubscription? _positionSubscription;
   bool _isFullscreen = false;
+  bool _isWebFullscreen = false;
   bool _showSpeedMenu = false;
   final GlobalKey _speedButtonKey = GlobalKey();
   bool _isHoveringSpeedButton = false;
@@ -231,6 +234,10 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
 
   void _onBlankAreaDoubleTap() {
     // 双击空白区域切换全屏
+    // 如果在网页全屏模式，先切换到真全屏
+    if (_isWebFullscreen && !_isFullscreen) {
+      _toggleWebFullscreen();
+    }
     _toggleFullscreen();
   }
 
@@ -309,6 +316,15 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
     }
   }
 
+  void _toggleWebFullscreen() {
+    setState(() {
+      _isWebFullscreen = !_isWebFullscreen;
+    });
+    // 通知父组件网页全屏状态变化
+    widget.onWebFullscreenChanged?.call(_isWebFullscreen);
+    _onUserInteraction();
+  }
+
   Future<void> _showDLNADialog() async {
     if (widget.player.state.playing) {
       widget.player.pause();
@@ -370,6 +386,10 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
       }
       // F 键切换全屏
       else if (event.logicalKey == LogicalKeyboardKey.keyF) {
+        if (_isWebFullscreen) {
+          _toggleWebFullscreen();
+          return KeyEventResult.handled;
+        }
         _toggleFullscreen();
         return KeyEventResult.handled;
       }
@@ -378,7 +398,8 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
         final currentPosition = widget.player.state.position;
         final newPosition = currentPosition - const Duration(seconds: 10);
         final clampedPosition = Duration(
-          milliseconds: newPosition.inMilliseconds.clamp(0, widget.player.state.duration.inMilliseconds),
+          milliseconds: newPosition.inMilliseconds
+              .clamp(0, widget.player.state.duration.inMilliseconds),
         );
         widget.player.seek(clampedPosition);
         // 显示控制栏
@@ -391,7 +412,8 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
         final duration = widget.player.state.duration;
         final newPosition = currentPosition + const Duration(seconds: 10);
         final clampedPosition = Duration(
-          milliseconds: newPosition.inMilliseconds.clamp(0, duration.inMilliseconds),
+          milliseconds:
+              newPosition.inMilliseconds.clamp(0, duration.inMilliseconds),
         );
         widget.player.seek(clampedPosition);
         // 显示控制栏
@@ -430,298 +452,320 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
       );
     }
 
+    // 使用网页全屏或真全屏的样式
+    final effectiveFullscreen = _isWebFullscreen || _isFullscreen;
+
     return Focus(
       focusNode: _focusNode,
       onKeyEvent: _handleKeyEvent,
       child: MouseRegion(
-      cursor: (_isFullscreen && !_controlsVisible)
-          ? SystemMouseCursors.none
-          : SystemMouseCursors.basic,
-      onEnter: (_) {
-        // 鼠标进入时显示控制栏并启动隐藏定时器
-        if (!_controlsVisible) {
-          setState(() {
-            _controlsVisible = true;
-          });
-        }
-        _startHideTimer();
-      },
-      onHover: (_) {
-        // 鼠标移动时重置隐藏定时器
-        if (!_controlsVisible) {
-          setState(() {
-            _controlsVisible = true;
-          });
-        }
-        _startHideTimer();
-      },
-      onExit: (_) {
-        // 鼠标移出时立即隐藏控制栏，但如果倍速菜单正在显示或鼠标在速度按钮/菜单上则不隐藏
-        _hideTimer?.cancel();
-        if (_controlsVisible &&
-            !_showSpeedMenu &&
-            !_isHoveringSpeedButton &&
-            !_isHoveringSpeedMenu) {
-          setState(() {
-            _controlsVisible = false;
-          });
-        }
-      },
-      child: Stack(
-        children: [
-          // 背景层 - 处理滑动手势
-          Positioned.fill(
-            child: GestureDetector(
-              onHorizontalDragStart: _onSwipeStart,
-              onHorizontalDragUpdate: _onSwipeUpdate,
-              onHorizontalDragEnd: _onSwipeEnd,
-              onTap: _onBlankAreaTap,
-              onDoubleTap: _onBlankAreaDoubleTap,
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                color: Colors.transparent,
-              ),
-            ),
-          ),
-          // 顶部返回按钮
-          Positioned(
-            top: _isFullscreen ? 8 : 4,
-            left: _isFullscreen ? 16.0 : 8.0,
-            child: AnimatedOpacity(
-              opacity: _controlsVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: IgnorePointer(
-                ignoring: !_controlsVisible,
-                child: HoverButton(
-                  onTap: () async {
-                    _onUserInteraction();
-                    if (_isFullscreen) {
-                      _toggleFullscreen();
-                    } else {
-                      widget.onBackPressed?.call();
-                    }
-                  },
-                  child: Icon(
-                    Icons.arrow_back,
-                    color: Colors.white,
-                    size: _isFullscreen ? 24 : 20,
-                  ),
+        cursor: (effectiveFullscreen && !_controlsVisible)
+            ? SystemMouseCursors.none
+            : SystemMouseCursors.basic,
+        onEnter: (_) {
+          // 鼠标进入时显示控制栏并启动隐藏定时器
+          if (!_controlsVisible) {
+            setState(() {
+              _controlsVisible = true;
+            });
+          }
+          _startHideTimer();
+        },
+        onHover: (_) {
+          // 鼠标移动时重置隐藏定时器
+          if (!_controlsVisible) {
+            setState(() {
+              _controlsVisible = true;
+            });
+          }
+          _startHideTimer();
+        },
+        onExit: (_) {
+          // 鼠标移出时立即隐藏控制栏，但如果倍速菜单正在显示或鼠标在速度按钮/菜单上则不隐藏
+          _hideTimer?.cancel();
+          if (_controlsVisible &&
+              !_showSpeedMenu &&
+              !_isHoveringSpeedButton &&
+              !_isHoveringSpeedMenu) {
+            setState(() {
+              _controlsVisible = false;
+            });
+          }
+        },
+        child: Stack(
+          children: [
+            // 背景层 - 处理滑动手势
+            Positioned.fill(
+              child: GestureDetector(
+                onHorizontalDragStart: _onSwipeStart,
+                onHorizontalDragUpdate: _onSwipeUpdate,
+                onHorizontalDragEnd: _onSwipeEnd,
+                onTap: _onBlankAreaTap,
+                onDoubleTap: _onBlankAreaDoubleTap,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  color: Colors.transparent,
                 ),
               ),
             ),
-          ),
-          // 顶部投屏按钮
-          Positioned(
-            top: _isFullscreen ? 8 : 4,
-            right: _isFullscreen ? 16.0 : 8.0,
-            child: AnimatedOpacity(
-              opacity: _controlsVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: IgnorePointer(
-                ignoring: !_controlsVisible,
-                child: HoverButton(
-                  onTap: () async {
-                    _onUserInteraction();
-                    await _showDLNADialog();
-                  },
-                  child: Icon(
-                    Icons.cast,
-                    color: Colors.white,
-                    size: _isFullscreen ? 24 : 20,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // 中央播放/暂停按钮 - 暂停时始终显示
-          Positioned.fill(
-            child: Center(
+            // 顶部返回按钮
+            Positioned(
+              top: effectiveFullscreen ? 8 : 4,
+              left: effectiveFullscreen ? 16.0 : 8.0,
               child: AnimatedOpacity(
-                opacity: (!widget.player.state.playing || _controlsVisible)
-                    ? 1.0
-                    : 0.0,
+                opacity: _controlsVisible ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 200),
                 child: IgnorePointer(
-                  ignoring: widget.player.state.playing && !_controlsVisible,
-                  child: _CenterPlayButton(
-                    isPlaying: widget.player.state.playing,
-                    isFullscreen: _isFullscreen,
-                    onTap: () {
+                  ignoring: !_controlsVisible,
+                  child: HoverButton(
+                    onTap: () async {
                       _onUserInteraction();
-                      if (widget.player.state.playing) {
-                        widget.player.pause();
-                        widget.onPause?.call();
+                      if (_isFullscreen) {
+                        _toggleFullscreen();
+                      } else if (_isWebFullscreen) {
+                        _toggleWebFullscreen();
                       } else {
-                        widget.player.play();
+                        widget.onBackPressed?.call();
                       }
                     },
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // 进度条
-          Positioned(
-            bottom: _isFullscreen ? 58.0 : 42.0,
-            left: 0,
-            right: 0,
-            child: AnimatedOpacity(
-              opacity: _controlsVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: IgnorePointer(
-                ignoring: !_controlsVisible,
-                child: Container(
-                  height: 24,
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  child: CustomVideoProgressBar(
-                    player: widget.player,
-                    onDragStart: _onSeekStart,
-                    onDragEnd: _onSeekEnd,
-                    onDragUpdate: () {
-                      if (!_controlsVisible) {
-                        setState(() {
-                          _controlsVisible = true;
-                        });
-                      }
-                      _hideTimer?.cancel();
-                    },
-                    onPositionUpdate: (duration) {
-                      setState(() {
-                        _dragPosition = duration;
-                      });
-                    },
-                    dragPosition: _dragPosition,
-                    isSeekingViaSwipe: _isSeekingViaSwipe,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // 底部控制栏
-          Positioned(
-            bottom: _isFullscreen ? 4.0 : -6.0,
-            left: 0,
-            right: 0,
-            child: AnimatedOpacity(
-              opacity: _controlsVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: IgnorePointer(
-                ignoring: !_controlsVisible,
-                child: GestureDetector(
-                  onTap: () {},
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: _isFullscreen ? 16.0 : 8.0,
-                      right: _isFullscreen ? 16.0 : 8.0,
-                      top: _isFullscreen ? 0.0 : 0.0,
-                      bottom: _isFullscreen ? 8.0 : 8.0,
+                    child: Icon(
+                      Icons.arrow_back,
+                      color: Colors.white,
+                      size: effectiveFullscreen ? 24 : 20,
                     ),
-                    child: Row(
-                      children: [
-                        HoverButton(
-                          onTap: () {
-                            _onUserInteraction();
-                            if (widget.player.state.playing) {
-                              widget.player.pause();
-                              widget.onPause?.call();
-                            } else {
-                              widget.player.play();
-                            }
-                          },
-                          child: Icon(
-                            widget.player.state.playing
-                                ? Icons.pause
-                                : Icons.play_arrow,
-                            color: Colors.white,
-                            size: _isFullscreen ? 28 : 24,
+                  ),
+                ),
+              ),
+            ),
+            // 顶部投屏按钮
+            Positioned(
+              top: effectiveFullscreen ? 8 : 4,
+              right: effectiveFullscreen ? 16.0 : 8.0,
+              child: AnimatedOpacity(
+                opacity: _controlsVisible ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: IgnorePointer(
+                  ignoring: !_controlsVisible,
+                  child: HoverButton(
+                    onTap: () async {
+                      _onUserInteraction();
+                      await _showDLNADialog();
+                    },
+                    child: Icon(
+                      Icons.cast,
+                      color: Colors.white,
+                      size: effectiveFullscreen ? 24 : 20,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // 中央播放/暂停按钮 - 暂停时始终显示
+            Positioned.fill(
+              child: Center(
+                child: AnimatedOpacity(
+                  opacity: (!widget.player.state.playing || _controlsVisible)
+                      ? 1.0
+                      : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: IgnorePointer(
+                    ignoring: widget.player.state.playing && !_controlsVisible,
+                    child: _CenterPlayButton(
+                      isPlaying: widget.player.state.playing,
+                      isFullscreen: effectiveFullscreen,
+                      onTap: () {
+                        _onUserInteraction();
+                        if (widget.player.state.playing) {
+                          widget.player.pause();
+                          widget.onPause?.call();
+                        } else {
+                          widget.player.play();
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // 进度条
+            Positioned(
+              bottom: effectiveFullscreen ? 58.0 : 42.0,
+              left: 0,
+              right: 0,
+              child: AnimatedOpacity(
+                opacity: _controlsVisible ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: IgnorePointer(
+                  ignoring: !_controlsVisible,
+                  child: Container(
+                    height: 24,
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    child: CustomVideoProgressBar(
+                      player: widget.player,
+                      onDragStart: _onSeekStart,
+                      onDragEnd: _onSeekEnd,
+                      onDragUpdate: () {
+                        if (!_controlsVisible) {
+                          setState(() {
+                            _controlsVisible = true;
+                          });
+                        }
+                        _hideTimer?.cancel();
+                      },
+                      onPositionUpdate: (duration) {
+                        setState(() {
+                          _dragPosition = duration;
+                        });
+                      },
+                      dragPosition: _dragPosition,
+                      isSeekingViaSwipe: _isSeekingViaSwipe,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // 底部控制栏
+            Positioned(
+              bottom: effectiveFullscreen ? 4.0 : -6.0,
+              left: 0,
+              right: 0,
+              child: AnimatedOpacity(
+                opacity: _controlsVisible ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: IgnorePointer(
+                  ignoring: !_controlsVisible,
+                  child: GestureDetector(
+                    onTap: () {},
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: effectiveFullscreen ? 16.0 : 8.0,
+                        right: effectiveFullscreen ? 16.0 : 8.0,
+                        top: effectiveFullscreen ? 0.0 : 0.0,
+                        bottom: effectiveFullscreen ? 8.0 : 8.0,
+                      ),
+                      child: Row(
+                        children: [
+                          HoverButton(
+                            onTap: () {
+                              _onUserInteraction();
+                              if (widget.player.state.playing) {
+                                widget.player.pause();
+                                widget.onPause?.call();
+                              } else {
+                                widget.player.play();
+                              }
+                            },
+                            child: Icon(
+                              widget.player.state.playing
+                                  ? Icons.pause
+                                  : Icons.play_arrow,
+                              color: Colors.white,
+                              size: effectiveFullscreen ? 28 : 24,
+                            ),
                           ),
-                        ),
-                        if (!widget.isLastEpisode)
-                          Transform.translate(
-                            offset: const Offset(-8, 0),
-                            child: HoverButton(
-                              onTap: () {
-                                _onUserInteraction();
-                                widget.onNextEpisode?.call();
-                              },
+                          if (!widget.isLastEpisode)
+                            Transform.translate(
+                              offset: const Offset(-8, 0),
+                              child: HoverButton(
+                                onTap: () {
+                                  _onUserInteraction();
+                                  widget.onNextEpisode?.call();
+                                },
+                                child: Icon(
+                                  Icons.skip_next,
+                                  color: Colors.white,
+                                  size: effectiveFullscreen ? 28 : 24,
+                                ),
+                              ),
+                            ),
+                          Expanded(
+                            child: _buildPositionIndicator(),
+                          ),
+                          MouseRegion(
+                            key: _speedButtonKey,
+                            cursor: SystemMouseCursors.click,
+                            onEnter: (_) {
+                              setState(() {
+                                _isHoveringSpeedButton = true;
+                                _showSpeedMenu = true;
+                                _controlsVisible = true;
+                              });
+                              _hideTimer?.cancel();
+                            },
+                            onExit: (_) {
+                              setState(() {
+                                _isHoveringSpeedButton = false;
+                              });
+                              // 延迟检查是否需要隐藏菜单
+                              Future.delayed(const Duration(milliseconds: 100),
+                                  () {
+                                if (mounted &&
+                                    !_isHoveringSpeedButton &&
+                                    !_isHoveringSpeedMenu) {
+                                  setState(() {
+                                    _showSpeedMenu = false;
+                                  });
+                                  _startHideTimer();
+                                }
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: _isHoveringSpeedButton
+                                  ? BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.grey.withValues(alpha: 0.5),
+                                    )
+                                  : null,
                               child: Icon(
-                                Icons.skip_next,
+                                Icons.speed,
                                 color: Colors.white,
-                                size: _isFullscreen ? 28 : 24,
+                                size: effectiveFullscreen ? 22 : 20,
                               ),
                             ),
                           ),
-                        Expanded(
-                          child: _buildPositionIndicator(),
-                        ),
-                        MouseRegion(
-                          key: _speedButtonKey,
-                          cursor: SystemMouseCursors.click,
-                          onEnter: (_) {
-                            setState(() {
-                              _isHoveringSpeedButton = true;
-                              _showSpeedMenu = true;
-                              _controlsVisible = true;
-                            });
-                            _hideTimer?.cancel();
-                          },
-                          onExit: (_) {
-                            setState(() {
-                              _isHoveringSpeedButton = false;
-                            });
-                            // 延迟检查是否需要隐藏菜单
-                            Future.delayed(const Duration(milliseconds: 100),
-                                () {
-                              if (mounted &&
-                                  !_isHoveringSpeedButton &&
-                                  !_isHoveringSpeedMenu) {
-                                setState(() {
-                                  _showSpeedMenu = false;
-                                });
-                                _startHideTimer();
-                              }
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: _isHoveringSpeedButton
-                                ? BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.grey.withValues(alpha: 0.5),
-                                  )
-                                : null,
-                            child: Icon(
-                              Icons.speed,
-                              color: Colors.white,
-                              size: _isFullscreen ? 22 : 20,
+                          // 网页全屏按钮（仅在非真全屏时显示）
+                          if (!_isFullscreen)
+                            HoverButton(
+                              onTap: () {
+                                _onUserInteraction();
+                                _toggleWebFullscreen();
+                              },
+                              child: Icon(
+                                _isWebFullscreen
+                                    ? Icons.fullscreen_exit
+                                    : Icons.fit_screen,
+                                color: Colors.white,
+                                size: effectiveFullscreen ? 28 : 24,
+                              ),
                             ),
-                          ),
-                        ),
-                        HoverButton(
-                          onTap: () {
-                            _onUserInteraction();
-                            _toggleFullscreen();
-                          },
-                          child: Icon(
-                            _isFullscreen
-                                ? Icons.fullscreen_exit
-                                : Icons.fullscreen,
-                            color: Colors.white,
-                            size: _isFullscreen ? 28 : 24,
-                          ),
-                        ),
-                      ],
+                          // 完全全屏按钮（仅在非网页全屏时显示）
+                          if (!_isWebFullscreen)
+                            HoverButton(
+                              onTap: () {
+                                _onUserInteraction();
+                                _toggleFullscreen();
+                              },
+                              child: Icon(
+                                _isFullscreen
+                                    ? Icons.fullscreen_exit
+                                    : Icons.fullscreen,
+                                color: Colors.white,
+                                size: effectiveFullscreen ? 28 : 24,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          // 倍速选择弹窗
-          if (_showSpeedMenu) _buildSpeedMenu(),
-        ],
-      ),
+            // 倍速选择弹窗
+            if (_showSpeedMenu) _buildSpeedMenu(),
+          ],
+        ),
       ),
     );
   }
@@ -739,14 +783,16 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
     final buttonSize = renderBox.size;
 
     // 根据全屏状态调整弹窗大小
-    final menuWidth = _isFullscreen ? 120.0 : 90.0;
-    final itemHeight = _isFullscreen ? 48.0 : 36.0;
+    final effectiveFullscreen = _isWebFullscreen || _isFullscreen;
+    final menuWidth = effectiveFullscreen ? 120.0 : 90.0;
+    final itemHeight = effectiveFullscreen ? 48.0 : 36.0;
     final menuHeight = speeds.length * itemHeight;
     // 计算水平居中位置：按钮中心 - 弹框宽度的一半
     final menuLeft =
         buttonPosition.dx + (buttonSize.width / 2) - (menuWidth / 2);
     // 计算垂直位置：按钮顶部 - 弹框高度 - 间距
-    final menuTop = buttonPosition.dy - menuHeight - (_isFullscreen ? 2 : 24);
+    final menuTop =
+        buttonPosition.dy - menuHeight - (effectiveFullscreen ? 2 : 24);
 
     return Positioned(
       left: menuLeft,
@@ -778,14 +824,14 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
             width: menuWidth,
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.85),
-              borderRadius: BorderRadius.circular(_isFullscreen ? 8 : 6),
+              borderRadius: BorderRadius.circular(effectiveFullscreen ? 8 : 6),
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(_isFullscreen ? 8 : 6),
+              borderRadius: BorderRadius.circular(effectiveFullscreen ? 8 : 6),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: speeds.map((speed) {
@@ -793,7 +839,7 @@ class _CustomMediaKitControlsState extends State<CustomMediaKitControls> {
                   return _SpeedMenuItem(
                     speed: speed,
                     isSelected: isSelected,
-                    isFullscreen: _isFullscreen,
+                    isFullscreen: effectiveFullscreen,
                     onTap: () {
                       widget.player.setRate(speed);
                       setState(() {

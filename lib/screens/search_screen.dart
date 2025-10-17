@@ -71,7 +71,6 @@ class _SearchScreenState extends State<SearchScreen>
   // hover 状态
   String? _hoveredHistoryItem;
   String? _hoveredDeleteButton;
-  bool _isAggregationToggleHovered = false;
   String? _hoveredFilterPill;
   bool _isYearSortHovered = false;
   bool _isClearHistoryButtonHovered = false;
@@ -1021,20 +1020,6 @@ class _SearchScreenState extends State<SearchScreen>
                       cursor: DeviceUtils.isPC()
                           ? SystemMouseCursors.click
                           : MouseCursor.defer,
-                      onEnter: DeviceUtils.isPC()
-                          ? (_) {
-                              setState(() {
-                                _isAggregationToggleHovered = true;
-                              });
-                            }
-                          : null,
-                      onExit: DeviceUtils.isPC()
-                          ? (_) {
-                              setState(() {
-                                _isAggregationToggleHovered = false;
-                              });
-                            }
-                          : null,
                       child: Transform.translate(
                         offset: const Offset(0, 1.0),
                         child: CustomSwitch(

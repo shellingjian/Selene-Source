@@ -19,6 +19,7 @@ class PcVideoPlayerWidget extends StatefulWidget {
   final int? currentEpisodeIndex;
   final int? totalEpisodes;
   final String? sourceName;
+  final Function(bool isWebFullscreen)? onWebFullscreenChanged;
 
   const PcVideoPlayerWidget({
     super.key,
@@ -35,6 +36,7 @@ class PcVideoPlayerWidget extends StatefulWidget {
     this.currentEpisodeIndex,
     this.totalEpisodes,
     this.sourceName,
+    this.onWebFullscreenChanged,
   });
 
   @override
@@ -301,6 +303,7 @@ class _PcVideoPlayerWidgetState extends State<PcVideoPlayerWidget>
                       });
                     }
                   },
+                  onWebFullscreenChanged: widget.onWebFullscreenChanged,
                 );
               },
             )
