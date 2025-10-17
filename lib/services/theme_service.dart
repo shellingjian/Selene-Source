@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:io' show Platform;
-import 'dart:ui';
 import 'package:macos_window_utils/macos_window_utils.dart';
 
 class ThemeService extends ChangeNotifier {
@@ -70,105 +69,135 @@ class ThemeService extends ChangeNotifier {
     }
   }
 
-  ThemeData get lightTheme => ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.light,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2c3e50),
-          brightness: Brightness.light,
-        ),
-        scaffoldBackgroundColor: const Color(0xFFf8f9fa),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFffffff),
-          foregroundColor: Color(0xFF2c3e50),
-          elevation: 0,
-        ),
-        cardTheme: const CardThemeData(
-          color: Color(0xFFffffff),
-          elevation: 2,
-        ),
-        textTheme: TextTheme(
-          bodyLarge: TextStyle(
-            color: const Color(0xFF2c3e50),
-            fontFeatures:
-                Platform.isWindows ? [const FontFeature.enable('liga')] : null,
-          ),
-          bodyMedium: TextStyle(
-            color: const Color(0xFF2c3e50),
-            fontFeatures:
-                Platform.isWindows ? [const FontFeature.enable('liga')] : null,
-          ),
-          bodySmall: TextStyle(
-            color: const Color(0xFF7f8c8d),
-            fontFeatures:
-                Platform.isWindows ? [const FontFeature.enable('liga')] : null,
-          ),
-          titleLarge: TextStyle(
-            color: const Color(0xFF2c3e50),
-            fontFeatures:
-                Platform.isWindows ? [const FontFeature.enable('liga')] : null,
-          ),
-          titleMedium: TextStyle(
-            color: const Color(0xFF2c3e50),
-            fontFeatures:
-                Platform.isWindows ? [const FontFeature.enable('liga')] : null,
-          ),
-          titleSmall: TextStyle(
-            color: const Color(0xFF2c3e50),
-            fontFeatures:
-                Platform.isWindows ? [const FontFeature.enable('liga')] : null,
-          ),
-        ),
-      );
+  ThemeData get lightTheme {
+    // Windows 下使用微软雅黑以获得更好的中文渲染
+    final textTheme = Platform.isWindows
+        ? ThemeData.light().textTheme.copyWith(
+              bodyLarge: const TextStyle(
+                color: Color(0xFF2c3e50),
+                fontWeight: FontWeight.w400,
+                fontFamily: 'Microsoft YaHei',
+              ),
+              bodyMedium: const TextStyle(
+                color: Color(0xFF2c3e50),
+                fontWeight: FontWeight.w400,
+                fontFamily: 'Microsoft YaHei',
+              ),
+              bodySmall: const TextStyle(
+                color: Color(0xFF7f8c8d),
+                fontWeight: FontWeight.w400,
+                fontFamily: 'Microsoft YaHei',
+              ),
+              titleLarge: const TextStyle(
+                color: Color(0xFF2c3e50),
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Microsoft YaHei',
+              ),
+              titleMedium: const TextStyle(
+                color: Color(0xFF2c3e50),
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Microsoft YaHei',
+              ),
+              titleSmall: const TextStyle(
+                color: Color(0xFF2c3e50),
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Microsoft YaHei',
+              ),
+            )
+        : const TextTheme(
+            bodyLarge: TextStyle(color: Color(0xFF2c3e50)),
+            bodyMedium: TextStyle(color: Color(0xFF2c3e50)),
+            bodySmall: TextStyle(color: Color(0xFF7f8c8d)),
+            titleLarge: TextStyle(color: Color(0xFF2c3e50)),
+            titleMedium: TextStyle(color: Color(0xFF2c3e50)),
+            titleSmall: TextStyle(color: Color(0xFF2c3e50)),
+          );
 
-  ThemeData get darkTheme => ThemeData(
-        useMaterial3: true,
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF2c3e50),
+        brightness: Brightness.light,
+      ),
+      scaffoldBackgroundColor: const Color(0xFFf8f9fa),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFFffffff),
+        foregroundColor: Color(0xFF2c3e50),
+        elevation: 0,
+      ),
+      cardTheme: const CardThemeData(
+        color: Color(0xFFffffff),
+        elevation: 2,
+      ),
+      textTheme: textTheme,
+      fontFamily: Platform.isWindows ? 'Microsoft YaHei' : null,
+    );
+  }
+
+  ThemeData get darkTheme {
+    // Windows 下使用微软雅黑以获得更好的中文渲染
+    final textTheme = Platform.isWindows
+        ? ThemeData.dark().textTheme.copyWith(
+              bodyLarge: const TextStyle(
+                color: Color(0xFFffffff),
+                fontWeight: FontWeight.w400,
+                fontFamily: 'Microsoft YaHei',
+              ),
+              bodyMedium: const TextStyle(
+                color: Color(0xFFffffff),
+                fontWeight: FontWeight.w400,
+                fontFamily: 'Microsoft YaHei',
+              ),
+              bodySmall: const TextStyle(
+                color: Color(0xFFb0b0b0),
+                fontWeight: FontWeight.w400,
+                fontFamily: 'Microsoft YaHei',
+              ),
+              titleLarge: const TextStyle(
+                color: Color(0xFFffffff),
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Microsoft YaHei',
+              ),
+              titleMedium: const TextStyle(
+                color: Color(0xFFffffff),
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Microsoft YaHei',
+              ),
+              titleSmall: const TextStyle(
+                color: Color(0xFFffffff),
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Microsoft YaHei',
+              ),
+            )
+        : const TextTheme(
+            bodyLarge: TextStyle(color: Color(0xFFffffff)),
+            bodyMedium: TextStyle(color: Color(0xFFffffff)),
+            bodySmall: TextStyle(color: Color(0xFFb0b0b0)),
+            titleLarge: TextStyle(color: Color(0xFFffffff)),
+            titleMedium: TextStyle(color: Color(0xFFffffff)),
+            titleSmall: TextStyle(color: Color(0xFFffffff)),
+          );
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF2c3e50),
         brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2c3e50),
-          brightness: Brightness.dark,
-        ),
-        scaffoldBackgroundColor: const Color(0xFF121212),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1e1e1e),
-          foregroundColor: Color(0xFFffffff),
-          elevation: 0,
-        ),
-        cardTheme: const CardThemeData(
-          color: Color(0xFF1e1e1e),
-          elevation: 2,
-        ),
-        textTheme: TextTheme(
-          bodyLarge: TextStyle(
-            color: const Color(0xFFffffff),
-            fontFeatures:
-                Platform.isWindows ? [const FontFeature.enable('liga')] : null,
-          ),
-          bodyMedium: TextStyle(
-            color: const Color(0xFFffffff),
-            fontFeatures:
-                Platform.isWindows ? [const FontFeature.enable('liga')] : null,
-          ),
-          bodySmall: TextStyle(
-            color: const Color(0xFFb0b0b0),
-            fontFeatures:
-                Platform.isWindows ? [const FontFeature.enable('liga')] : null,
-          ),
-          titleLarge: TextStyle(
-            color: const Color(0xFFffffff),
-            fontFeatures:
-                Platform.isWindows ? [const FontFeature.enable('liga')] : null,
-          ),
-          titleMedium: TextStyle(
-            color: const Color(0xFFffffff),
-            fontFeatures:
-                Platform.isWindows ? [const FontFeature.enable('liga')] : null,
-          ),
-          titleSmall: TextStyle(
-            color: const Color(0xFFffffff),
-            fontFeatures:
-                Platform.isWindows ? [const FontFeature.enable('liga')] : null,
-          ),
-        ),
-      );
+      ),
+      scaffoldBackgroundColor: const Color(0xFF121212),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF1e1e1e),
+        foregroundColor: Color(0xFFffffff),
+        elevation: 0,
+      ),
+      cardTheme: const CardThemeData(
+        color: Color(0xFF1e1e1e),
+        elevation: 2,
+      ),
+      textTheme: textTheme,
+      fontFamily: Platform.isWindows ? 'Microsoft YaHei' : null,
+    );
+  }
 }
