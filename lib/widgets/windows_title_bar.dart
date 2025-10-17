@@ -50,7 +50,7 @@ class _WindowsTitleBarState extends State<WindowsTitleBar> {
                 color: const Color(0xFFFF5F57),
                 hoverColor: const Color(0xFFFF3B30),
                 icon: Icons.close,
-                iconSize: 8,
+                iconSize: 9,
               ),
               const SizedBox(width: 8),
               _buildMacOSButton(
@@ -60,7 +60,7 @@ class _WindowsTitleBarState extends State<WindowsTitleBar> {
                 color: const Color(0xFFFEBC2E),
                 hoverColor: const Color(0xFFFFB300),
                 icon: Icons.remove,
-                iconSize: 8,
+                iconSize: 9,
               ),
               const SizedBox(width: 8),
               _buildMacOSButton(
@@ -70,7 +70,7 @@ class _WindowsTitleBarState extends State<WindowsTitleBar> {
                 color: const Color(0xFF28C840),
                 hoverColor: const Color(0xFF00C957),
                 icon: Icons.fullscreen,
-                iconSize: 8,
+                iconSize: 9,
               ),
               // 可拖动区域
               Expanded(
@@ -104,8 +104,8 @@ class _WindowsTitleBarState extends State<WindowsTitleBar> {
       child: GestureDetector(
         onTap: onPressed,
         child: Container(
-          width: 12,
-          height: 12,
+          width: 14,
+          height: 14,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: color,

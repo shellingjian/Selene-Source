@@ -16,14 +16,14 @@ class FontUtils {
       return TextStyle(
         fontFamily: 'Microsoft YaHei',
         fontSize: fontSize,
-        fontWeight: fontWeight ?? FontWeight.w400,
+        fontWeight: fontWeight ?? FontWeight.w600,
         color: color,
         letterSpacing: letterSpacing,
         height: height,
         fontStyle: fontStyle,
       );
     }
-    
+
     return GoogleFonts.poppins(
       fontSize: fontSize,
       fontWeight: fontWeight,
