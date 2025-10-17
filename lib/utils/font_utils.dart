@@ -16,7 +16,7 @@ class FontUtils {
       return TextStyle(
         fontFamily: 'Microsoft YaHei',
         fontSize: fontSize,
-        fontWeight: fontWeight ?? FontWeight.w600,
+        fontWeight: fontWeight ?? FontWeight.w500,
         color: color,
         letterSpacing: letterSpacing,
         height: height,
