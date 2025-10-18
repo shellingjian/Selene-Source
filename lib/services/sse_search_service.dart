@@ -12,7 +12,7 @@ class SSESearchService {
   StreamController<List<SearchResult>>? _incrementalResultsController;
   StreamController<String>? _errorController;
   StreamController<SearchProgress>? _progressController;
-  
+
   bool _isConnected = false;
   String? _currentQuery;
   final Map<String, String> _sourceErrors = {};
@@ -22,16 +22,20 @@ class SSESearchService {
   Timer? _timeoutTimer; // 超时定时器
 
   /// 获取事件流
-  Stream<SearchEvent> get eventStream => _eventController?.stream ?? const Stream.empty();
+  Stream<SearchEvent> get eventStream =>
+      _eventController?.stream ?? const Stream.empty();
 
   /// 获取增量结果流
-  Stream<List<SearchResult>> get incrementalResultsStream => _incrementalResultsController?.stream ?? const Stream.empty();
+  Stream<List<SearchResult>> get incrementalResultsStream =>
+      _incrementalResultsController?.stream ?? const Stream.empty();
 
   /// 获取错误流
-  Stream<String> get errorStream => _errorController?.stream ?? const Stream.empty();
+  Stream<String> get errorStream =>
+      _errorController?.stream ?? const Stream.empty();
 
   /// 获取进度流
-  Stream<SearchProgress> get progressStream => _progressController?.stream ?? const Stream.empty();
+  Stream<SearchProgress> get progressStream =>
+      _progressController?.stream ?? const Stream.empty();
 
   /// 是否已连接
   bool get isConnected => _isConnected;
@@ -81,11 +85,11 @@ class SSESearchService {
           'q': _currentQuery!,
         },
       );
-      
 
       // 初始化流控制器
       _eventController = StreamController<SearchEvent>.broadcast();
-      _incrementalResultsController = StreamController<List<SearchResult>>.broadcast();
+      _incrementalResultsController =
+          StreamController<List<SearchResult>>.broadcast();
       _errorController = StreamController<String>.broadcast();
       _progressController = StreamController<SearchProgress>.broadcast();
 
@@ -106,13 +110,13 @@ class SSESearchService {
         'Cache-Control': 'no-cache',
         'Cookie': cookies,
       });
-      
+
       _subscription = _client!.send(request).asStream().listen(
         _handleSSEResponse,
         onError: (error) {
           // 静默处理连接关闭错误，不显示给用户
           final errorString = error.toString().toLowerCase();
-          if (errorString.contains('connection closed') || 
+          if (errorString.contains('connection closed') ||
               errorString.contains('clientexception') ||
               errorString.contains('connection terminated')) {
             // 连接被关闭，这是正常情况，静默处理
@@ -122,19 +126,18 @@ class SSESearchService {
         },
         onDone: _handleDone,
       );
-
     } catch (e) {
       _isConnected = false;
-      
+
       // 检查是否是连接关闭错误，如果是则静默处理
       final errorString = e.toString().toLowerCase();
-      if (errorString.contains('connection closed') || 
+      if (errorString.contains('connection closed') ||
           errorString.contains('clientexception') ||
           errorString.contains('connection terminated')) {
         // 连接被关闭，这是正常情况，静默处理
         return;
       }
-      
+
       _errorController?.add('连接失败: ${e.toString()}');
       rethrow;
     }
@@ -142,7 +145,6 @@ class SSESearchService {
 
   /// 处理 SSE 响应
   void _handleSSEResponse(http.StreamedResponse response) async {
-    
     if (response.statusCode != 200) {
       _errorController?.add('SSE 连接失败: ${response.statusCode}');
       return;
@@ -151,25 +153,27 @@ class SSESearchService {
     // 重置缓冲区
     _buffer = '';
 
+    // 使用流式 UTF-8 解码器，自动处理跨 chunk 的多字节字符
+    final utf8Decoder = const Utf8Decoder(allowMalformed: false);
+
     // 流式处理 SSE 数据
-    await for (final chunk in response.stream) {
+    await for (final chunk in response.stream.transform(utf8Decoder)) {
       try {
         // 将新数据添加到缓冲区
-        _buffer += utf8.decode(chunk, allowMalformed: true);
-        
+        _buffer += chunk;
+
         // 按行分割并处理
         final lines = _buffer.split('\n');
-        
+
         // 保留最后一行（可能不完整）
         if (lines.isNotEmpty) {
           _buffer = lines.last;
           lines.removeLast();
         }
-        
+
         for (final line in lines) {
           if (line.trim().isEmpty) continue;
-          
-          
+
           // SSE 格式: data: {...}
           if (line.startsWith('data: ')) {
             final jsonStr = line.substring(6); // 移除 'data: ' 前缀
@@ -187,9 +191,9 @@ class SSESearchService {
   void _handleSSEData(String jsonStr) {
     try {
       final data = json.decode(jsonStr);
-      
+
       final event = SearchEvent.fromJson(data as Map<String, dynamic>);
-      
+
       _eventController?.add(event);
 
       switch (event.type) {
@@ -225,7 +229,7 @@ class SSESearchService {
   /// 处理搜索结果事件
   void _handleSourceResultEvent(SearchSourceResultEvent event) {
     _completedSources++;
-    
+
     // 只发送增量结果更新，避免全量重渲染
     if (event.results.isNotEmpty) {
       _incrementalResultsController?.add(List.from(event.results));
@@ -243,10 +247,10 @@ class SSESearchService {
   /// 处理搜索错误事件
   void _handleSourceErrorEvent(SearchSourceErrorEvent event) {
     _sourceErrors[event.source] = event.error;
-    
+
     // 错误也算源完成，累计进度
     _completedSources++;
-    
+
     // 更新进度
     _progressController?.add(SearchProgress(
       totalSources: _totalSources,
@@ -264,7 +268,7 @@ class SSESearchService {
     if (_completedSources < _totalSources) {
       _completedSources = _totalSources;
     }
-    
+
     // 发送最终完成状态
     _progressController?.add(SearchProgress(
       totalSources: _totalSources,
@@ -272,7 +276,7 @@ class SSESearchService {
       currentSource: null,
       isComplete: true,
     ));
-    
+
     // 搜索完成，关闭连接
     _closeConnection();
   }
@@ -284,7 +288,7 @@ class SSESearchService {
     if (_completedSources < _totalSources) {
       _completedSources = _totalSources;
     }
-    
+
     // 发送超时状态
     _progressController?.add(SearchProgress(
       totalSources: _totalSources,
@@ -292,7 +296,7 @@ class SSESearchService {
       currentSource: null,
       isComplete: true,
     ));
-    
+
     _errorController?.add('搜索超时（15秒）');
     _closeConnection();
   }
@@ -309,17 +313,17 @@ class SSESearchService {
   /// 处理 SSE 错误
   void _handleError(error) {
     _isConnected = false;
-    
+
     // 检查是否是连接关闭错误，如果是则忽略
     final errorString = error.toString().toLowerCase();
-    if (errorString.contains('connection closed') || 
+    if (errorString.contains('connection closed') ||
         errorString.contains('clientexception') ||
         errorString.contains('connection terminated')) {
       // 连接被关闭，这是正常情况，不显示错误
       print('搜索连接已关闭: ${error.toString()}');
       return;
     }
-    
+
     // 其他错误才显示给用户
     _errorController?.add('SSE 错误: ${error.toString()}');
   }
@@ -333,22 +337,22 @@ class SSESearchService {
   Future<void> stopSearch() async {
     await _subscription?.cancel();
     _subscription = null;
-    
+
     _timeoutTimer?.cancel();
     _timeoutTimer = null;
-    
+
     _client?.close();
     _client = null;
-    
+
     _isConnected = false;
     _currentQuery = null;
-    
+
     // 关闭流控制器
     await _eventController?.close();
     await _incrementalResultsController?.close();
     await _errorController?.close();
     await _progressController?.close();
-    
+
     _eventController = null;
     _incrementalResultsController = null;
     _errorController = null;
