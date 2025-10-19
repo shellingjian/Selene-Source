@@ -45,6 +45,7 @@ class _VideoCardState extends State<VideoCard> {
   bool _isDeleteButtonHovered = false;
   bool _isFavoriteButtonHovered = false;
   bool _isLinkButtonHovered = false;
+  bool _isSourceCountBadgeHovered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -286,8 +287,8 @@ class _VideoCardState extends State<VideoCard> {
                                 opacity: _isHovered ? 1.0 : 0.0,
                                 duration: const Duration(milliseconds: 200),
                                 child: MouseRegion(
-                                  onEnter: (_) =>
-                                      setState(() => _isPlayButtonHovered = true),
+                                  onEnter: (_) => setState(
+                                      () => _isPlayButtonHovered = true),
                                   onExit: (_) => setState(
                                       () => _isPlayButtonHovered = false),
                                   child: AnimatedScale(
@@ -295,7 +296,8 @@ class _VideoCardState extends State<VideoCard> {
                                     duration: const Duration(milliseconds: 200),
                                     curve: Curves.easeInOut,
                                     child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 200),
+                                      duration:
+                                          const Duration(milliseconds: 200),
                                       width: 60,
                                       height: 60,
                                       decoration: BoxDecoration(
@@ -333,8 +335,10 @@ class _VideoCardState extends State<VideoCard> {
                               opacity: _isHovered ? 1.0 : 0.0,
                               duration: const Duration(milliseconds: 200),
                               child: MouseRegion(
-                                onEnter: (_) => setState(() => _isLinkButtonHovered = true),
-                                onExit: (_) => setState(() => _isLinkButtonHovered = false),
+                                onEnter: (_) =>
+                                    setState(() => _isLinkButtonHovered = true),
+                                onExit: (_) => setState(
+                                    () => _isLinkButtonHovered = false),
                                 child: GestureDetector(
                                   onTap: () => _handleLinkButtonTap(),
                                   child: AnimatedScale(
@@ -352,6 +356,51 @@ class _VideoCardState extends State<VideoCard> {
                                         Icons.link,
                                         color: Colors.white,
                                         size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        // 聚合模式：右下角源数量徽章
+                        if (widget.from == 'agg' &&
+                            widget.originalResults != null)
+                          Positioned(
+                            bottom: 10,
+                            right: 10,
+                            child: AnimatedOpacity(
+                              opacity: _isHovered ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: MouseRegion(
+                                onEnter: (_) => setState(
+                                    () => _isSourceCountBadgeHovered = true),
+                                onExit: (_) => setState(
+                                    () => _isSourceCountBadgeHovered = false),
+                                child: GestureDetector(
+                                  onTap: () => _showSourcesDialog(context),
+                                  child: AnimatedScale(
+                                    scale:
+                                        _isSourceCountBadgeHovered ? 1.1 : 1.0,
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.easeInOut,
+                                    child: Container(
+                                      width: 30,
+                                      height: 30,
+                                      decoration: BoxDecoration(
+                                        color:
+                                            Colors.grey.withValues(alpha: 0.8),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '${widget.originalResults!.length}',
+                                          style: FontUtils.poppins(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -402,8 +451,9 @@ class _VideoCardState extends State<VideoCard> {
                                     child: GestureDetector(
                                       onTap: () => _handleFavoriteButtonTap(),
                                       child: AnimatedScale(
-                                        scale:
-                                            _isFavoriteButtonHovered ? 1.05 : 1.0,
+                                        scale: _isFavoriteButtonHovered
+                                            ? 1.05
+                                            : 1.0,
                                         duration:
                                             const Duration(milliseconds: 200),
                                         curve: Curves.easeInOut,
@@ -442,7 +492,8 @@ class _VideoCardState extends State<VideoCard> {
                                 child: GestureDetector(
                                   onTap: () => _handleFavoriteButtonTap(),
                                   child: AnimatedScale(
-                                    scale: _isFavoriteButtonHovered ? 1.05 : 1.0,
+                                    scale:
+                                        _isFavoriteButtonHovered ? 1.05 : 1.0,
                                     duration: const Duration(milliseconds: 200),
                                     curve: Curves.easeInOut,
                                     child: Icon(
@@ -717,7 +768,8 @@ class _VideoCardState extends State<VideoCard> {
       String? url;
       if (widget.from == 'douban' && widget.videoInfo.doubanId != null) {
         url = 'https://movie.douban.com/subject/${widget.videoInfo.doubanId}';
-      } else if (widget.from == 'bangumi' && widget.videoInfo.bangumiId != null) {
+      } else if (widget.from == 'bangumi' &&
+          widget.videoInfo.bangumiId != null) {
         url = 'https://bgm.tv/subject/${widget.videoInfo.bangumiId}';
       }
 
@@ -730,6 +782,112 @@ class _VideoCardState extends State<VideoCard> {
     } catch (e) {
       // 静默处理错误
     }
+  }
+
+  /// 显示播放源列表对话框
+  void _showSourcesDialog(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final sources = widget.originalResults;
+    if (sources == null || sources.isEmpty) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.5,
+              maxWidth: 320,
+            ),
+            decoration: BoxDecoration(
+              color: themeService.isDarkMode
+                  ? const Color(0xFF2C2C2C)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 标题
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                  child: Text(
+                    '可用播放源',
+                    style: FontUtils.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: themeService.isDarkMode
+                          ? const Color(0xFFFFFFFF)
+                          : const Color(0xFF2C2C2C),
+                    ),
+                  ),
+                ),
+                // 播放源列表
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        children: sources.map((source) {
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                widget.onSourceSelected?.call(source);
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      source.sourceName,
+                                      style: FontUtils.poppins(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    if (source.episodes.length > 1)
+                                      Text(
+                                        '${source.episodes.length}集',
+                                        style: FontUtils.poppins(
+                                          fontSize: 14,
+                                          color: themeService.isDarkMode
+                                              ? Colors.white70
+                                              : Colors.black54,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   /// 显示视频菜单
