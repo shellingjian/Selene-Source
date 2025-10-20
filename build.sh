@@ -175,70 +175,6 @@ build_macos() {
     log_success "macOS 所有架构构建完成"
 }
 
-# 构建 Windows 版本
-build_windows() {
-    log_info "开始构建 Windows x86 版本..."
-    
-    # 检查是否在 Windows 上
-    if [[ "$OSTYPE" != "msys" && "$OSTYPE" != "win32" && "$OSTYPE" != "cygwin" ]]; then
-        log_warning "Windows 构建只能在 Windows 上进行，跳过 Windows 构建"
-        return
-    fi
-    
-    # 确保 Windows 构建目录存在
-    mkdir -p build/windows
-    
-    # 构建 Windows 版本
-    flutter build windows --release
-    
-    log_success "Windows 构建完成"
-}
-
-# 构建 Windows 安装包（使用 Inno Setup）
-build_windows_installer() {
-    log_info "开始构建 Windows 安装包..."
-    
-    # 检查是否在 Windows 上
-    if [[ "$OSTYPE" != "msys" && "$OSTYPE" != "win32" && "$OSTYPE" != "cygwin" ]]; then
-        log_warning "Windows 安装包构建只能在 Windows 上进行"
-        return
-    fi
-    
-    # 检查 Inno Setup 是否安装
-    ISCC_PATH=""
-    
-    # 常见的 Inno Setup 安装路径
-    if [ -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ]; then
-        ISCC_PATH="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
-    elif [ -f "/c/Program Files/Inno Setup 6/ISCC.exe" ]; then
-        ISCC_PATH="/c/Program Files/Inno Setup 6/ISCC.exe"
-    elif command -v iscc &> /dev/null; then
-        ISCC_PATH="iscc"
-    else
-        log_error "未找到 Inno Setup 编译器 (ISCC.exe)"
-        log_info "请从以下地址下载并安装 Inno Setup: https://jrsoftware.org/isdl.php"
-        return 1
-    fi
-    
-    log_info "使用 Inno Setup: $ISCC_PATH"
-    
-    # 检查是否存在 logo.ico，如果不存在则从 logo.jpg 转换
-    if [ ! -f "logo.ico" ] && [ -f "logo.jpg" ]; then
-        log_warning "未找到 logo.ico，将跳过图标设置"
-        # 可以使用 ImageMagick 转换: convert logo.jpg -resize 256x256 logo.ico
-    fi
-    
-    # 编译安装程序
-    "$ISCC_PATH" "windows/installer.iss"
-    
-    if [ $? -eq 0 ]; then
-        log_success "Windows 安装包构建完成"
-    else
-        log_error "Windows 安装包构建失败"
-        return 1
-    fi
-}
-
 # 构建 iOS 无签名版本
 build_ios() {
     log_info "开始构建 iOS 无签名版本..."
@@ -363,22 +299,6 @@ copy_artifacts() {
         log_warning "macOS x86_64 应用文件未找到"
     fi
     
-    # 复制 Windows 构建产物
-    if [ -d "build/windows/x64/runner/Release" ]; then
-        # 创建 zip 文件（便携版）
-        cd build/windows/x64/runner/Release
-        zip a "../../../../../dist/selene-${APP_VERSION}-windows-x64-portable.zip" .
-        cd ../../../../../
-        log_success "Windows x64 便携版已复制到 dist/selene-${APP_VERSION}-windows-x64-portable.zip"
-    else
-        log_warning "Windows 应用文件未找到"
-    fi
-    
-    # Windows 安装包应该已经由 build_windows_installer 生成到 dist 目录
-    if [ -f "dist/selene-${APP_VERSION}-windows-x64-setup.exe" ]; then
-        log_success "Windows 安装包: dist/selene-${APP_VERSION}-windows-x64-setup.exe"
-    fi
-    
     log_success "构建产物复制完成"
 }
 
@@ -412,7 +332,6 @@ main() {
     BUILD_IOS=true
     BUILD_MACOS_ARM64=true
     BUILD_MACOS_X86_64=true
-    BUILD_WINDOWS=true
     PARALLEL_BUILD=true
     
     while [[ $# -gt 0 ]]; do
@@ -421,47 +340,33 @@ main() {
                 BUILD_IOS=false
                 BUILD_MACOS_ARM64=false
                 BUILD_MACOS_X86_64=false
-                BUILD_WINDOWS=false
                 shift
                 ;;
             --ios-only)
                 BUILD_ANDROID=false
                 BUILD_MACOS_ARM64=false
                 BUILD_MACOS_X86_64=false
-                BUILD_WINDOWS=false
                 shift
                 ;;
             --macos-arm64-only)
                 BUILD_ANDROID=false
                 BUILD_IOS=false
                 BUILD_MACOS_X86_64=false
-                BUILD_WINDOWS=false
                 shift
                 ;;
             --macos-x86_64-only)
                 BUILD_ANDROID=false
                 BUILD_IOS=false
                 BUILD_MACOS_ARM64=false
-                BUILD_WINDOWS=false
                 shift
                 ;;
             --macos-only)
                 BUILD_ANDROID=false
                 BUILD_IOS=false
-                BUILD_WINDOWS=false
                 shift
                 ;;
             --apple-only)
                 BUILD_ANDROID=false
-                BUILD_WINDOWS=false
-                BUILD_WINDOWS_ARM64=false
-                shift
-                ;;
-            --windows-only)
-                BUILD_ANDROID=false
-                BUILD_IOS=false
-                BUILD_MACOS_ARM64=false
-                BUILD_MACOS_X86_64=false
                 shift
                 ;;
             --sequential)
@@ -471,15 +376,14 @@ main() {
             --help)
                 echo "用法: $0 [选项]"
                 echo "选项:"
-                echo "  --android-only       只构建安卓版本"
-                echo "  --ios-only          只构建 iOS 版本"
-                echo "  --macos-arm64-only  只构建 macOS ARM64 版本"
-                echo "  --macos-x86_64-only 只构建 macOS x86_64 版本"
-                echo "  --macos-only        构建 macOS 所有架构"
-                echo "  --apple-only        构建所有 Apple 平台版本（iOS 和 macOS）"
-                echo "  --windows-only      只构建 Windows 版本"
-                echo "  --sequential        顺序构建（默认为并行构建）"
-                echo "  --help              显示此帮助信息"
+                echo "  --android-only       只构建 Android 版本"
+                echo "  --ios-only           只构建 iOS 版本"
+                echo "  --macos-arm64-only   只构建 macOS ARM64 版本"
+                echo "  --macos-x86_64-only  只构建 macOS x86_64 版本"
+                echo "  --macos-only         构建 macOS 所有架构"
+                echo "  --apple-only         构建所有 Apple 平台版本（iOS 和 macOS）"
+                echo "  --sequential         顺序构建（默认为并行构建）"
+                echo "  --help               显示此帮助信息"
                 exit 0
                 ;;
             *)
@@ -523,11 +427,6 @@ main() {
             pids+=($!)
         fi
         
-        if [ "$BUILD_WINDOWS" = true ]; then
-            build_windows &
-            pids+=($!)
-        fi
-        
         # 等待所有后台进程完成
         log_info "等待所有构建任务完成..."
         for pid in "${pids[@]}"; do
@@ -552,15 +451,6 @@ main() {
         if [ "$BUILD_MACOS_X86_64" = true ]; then
             build_macos_x86_64
         fi
-        
-        if [ "$BUILD_WINDOWS" = true ]; then
-            build_windows
-        fi
-    fi
-    
-    # 构建 Windows 安装包（必须在 Windows 构建完成后）
-    if [ "$BUILD_WINDOWS" = true ]; then
-        build_windows_installer
     fi
     
     copy_artifacts
