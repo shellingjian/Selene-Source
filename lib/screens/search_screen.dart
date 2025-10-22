@@ -604,10 +604,9 @@ class _SearchScreenState extends State<SearchScreen>
   Widget _buildSearchHistory(ThemeService themeService) {
     // 如果没有搜索历史，显示空状态
     if (_searchHistory.isEmpty) {
-      final isTablet = DeviceUtils.isTablet(context);
       return Center(
         child: Padding(
-          padding: EdgeInsets.only(top: isTablet ? 120.0 : 0.0),
+          padding: const EdgeInsets.only(top: 120.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

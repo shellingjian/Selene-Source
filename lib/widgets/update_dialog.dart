@@ -8,12 +8,12 @@ import '../utils/font_utils.dart';
 
 class UpdateDialog extends StatelessWidget {
   final VersionInfo versionInfo;
-  
+
   const UpdateDialog({
     super.key,
     required this.versionInfo,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeService>(
@@ -27,7 +27,7 @@ class UpdateDialog extends StatelessWidget {
           child: Container(
             constraints: const BoxConstraints(maxWidth: 400),
             decoration: BoxDecoration(
-              color: themeService.isDarkMode 
+              color: themeService.isDarkMode
                   ? const Color(0xFF2C2C2C)
                   : Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -75,7 +75,7 @@ class UpdateDialog extends StatelessWidget {
                         style: FontUtils.poppins(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: themeService.isDarkMode 
+                          color: themeService.isDarkMode
                               ? const Color(0xFFFFFFFF)
                               : const Color(0xFF2C2C2C),
                         ),
@@ -83,7 +83,7 @@ class UpdateDialog extends StatelessWidget {
                     ],
                   ),
                 ),
-                
+
                 // 内容区域
                 Padding(
                   padding: const EdgeInsets.all(20),
@@ -130,7 +130,7 @@ class UpdateDialog extends StatelessWidget {
                           ],
                         ),
                       ),
-                      
+
                       // 更新说明
                       if (versionInfo.releaseNotes.isNotEmpty) ...[
                         const SizedBox(height: 16),
@@ -147,7 +147,7 @@ class UpdateDialog extends StatelessWidget {
                               style: FontUtils.poppins(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: themeService.isDarkMode 
+                                color: themeService.isDarkMode
                                     ? const Color(0xFFFFFFFF)
                                     : const Color(0xFF2C2C2C),
                               ),
@@ -156,6 +156,7 @@ class UpdateDialog extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
                         Container(
+                          width: double.infinity,
                           constraints: const BoxConstraints(maxHeight: 200),
                           decoration: BoxDecoration(
                             color: themeService.isDarkMode
@@ -171,7 +172,7 @@ class UpdateDialog extends StatelessWidget {
                                 style: FontUtils.poppins(
                                   fontSize: 14,
                                   height: 1.6,
-                                  color: themeService.isDarkMode 
+                                  color: themeService.isDarkMode
                                       ? const Color(0xFFCCCCCC)
                                       : const Color(0xFF666666),
                                 ),
@@ -183,7 +184,7 @@ class UpdateDialog extends StatelessWidget {
                     ],
                   ),
                 ),
-                
+
                 // 底部按钮区域
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -195,10 +196,12 @@ class UpdateDialog extends StatelessWidget {
                         height: 44,
                         child: ElevatedButton.icon(
                           onPressed: () async {
-                            final url = VersionService.getReleaseUrl(versionInfo.latestVersion);
+                            final url = VersionService.getReleaseUrl(
+                                versionInfo.latestVersion);
                             final uri = Uri.parse(url);
                             if (await canLaunchUrl(uri)) {
-                              await launchUrl(uri, mode: LaunchMode.externalApplication);
+                              await launchUrl(uri,
+                                  mode: LaunchMode.externalApplication);
                             }
                             if (context.mounted) {
                               Navigator.of(context).pop();
@@ -229,7 +232,8 @@ class UpdateDialog extends StatelessWidget {
                           Expanded(
                             child: TextButton(
                               onPressed: () async {
-                                await VersionService.dismissVersion(versionInfo.latestVersion);
+                                await VersionService.dismissVersion(
+                                    versionInfo.latestVersion);
                                 if (context.mounted) {
                                   Navigator.of(context).pop();
                                 }
@@ -271,7 +275,7 @@ class UpdateDialog extends StatelessWidget {
       },
     );
   }
-  
+
   Widget _buildVersionChip(
     BuildContext context,
     ThemeService themeService,
@@ -288,7 +292,7 @@ class UpdateDialog extends StatelessWidget {
           label,
           style: FontUtils.poppins(
             fontSize: 12,
-            color: themeService.isDarkMode 
+            color: themeService.isDarkMode
                 ? const Color(0xFF999999)
                 : const Color(0xFF666666),
           ),
@@ -305,9 +309,10 @@ class UpdateDialog extends StatelessWidget {
       ],
     );
   }
-  
+
   /// 显示更新对话框
-  static Future<void> show(BuildContext context, VersionInfo versionInfo) async {
+  static Future<void> show(
+      BuildContext context, VersionInfo versionInfo) async {
     return showDialog(
       context: context,
       barrierDismissible: false,

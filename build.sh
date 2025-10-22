@@ -26,6 +26,11 @@ read_version() {
             log_error "无法从 pubspec.yaml 中读取版本号"
             exit 1
         fi
+        APP_VERSION=$(echo "$APP_VERSION" | cut -d'+' -f1)
+        if [ -z "$APP_VERSION" ]; then
+            log_error "无法从 pubspec.yaml 中读取版本号"
+            exit 1
+        fi
         log_success "项目版本号: $APP_VERSION"
     else
         log_error "pubspec.yaml 文件不存在"

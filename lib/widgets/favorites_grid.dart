@@ -396,10 +396,9 @@ class _FavoritesGridState extends State<FavoritesGrid>
   }
 
   Widget _buildEmptyState() {
-    final isTablet = DeviceUtils.isTablet(context);
     return Center(
       child: Padding(
-        padding: EdgeInsets.only(top: isTablet ? 120.0 : 0.0),
+        padding: const EdgeInsets.only(top: 120.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
