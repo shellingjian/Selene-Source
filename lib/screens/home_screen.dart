@@ -33,10 +33,13 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentBottomNavIndex = 0;
   String _selectedTopTab = '首页';
+  late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
+    // 初始化 PageController，默认显示首页（索引0）
+    _pageController = PageController(initialPage: 0);
     // 进入首页时直接刷新播放记录和收藏夹缓存
     _refreshCacheOnHomeEnter();
     // 检查应用更新
@@ -68,6 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -140,171 +144,232 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// 重新构建首页内容（用于顶部标签切换）
-  Widget _buildHomeContentForTab(String tab) {
+  /// 构建首页内容（带 PageView 支持滑动切换）
+  Widget _buildHomeContentWithPageView() {
+    return Column(
+      children: [
+        // 顶部导航栏
+        TopTabSwitcher(
+          selectedTab: _selectedTopTab,
+          onTabChanged: _onTopTabChanged,
+        ),
+        // PageView 支持左右滑动
+        Expanded(
+          child: PageView(
+            controller: _pageController,
+            onPageChanged: (index) {
+              // 根据页面索引更新选中的标签
+              String newTab;
+              switch (index) {
+                case 0:
+                  newTab = '首页';
+                  break;
+                case 1:
+                  newTab = '播放历史';
+                  break;
+                case 2:
+                  newTab = '收藏夹';
+                  break;
+                default:
+                  newTab = '首页';
+              }
+              
+              // 只在标签真正改变时更新状态
+              if (_selectedTopTab != newTab) {
+                setState(() {
+                  _selectedTopTab = newTab;
+                });
+              }
+            },
+            children: [
+              // 首页内容
+              _buildHomeTabContent(),
+              // 播放历史内容
+              _buildHistoryTabContent(),
+              // 收藏夹内容
+              _buildFavoritesTabContent(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 构建首页标签内容
+  Widget _buildHomeTabContent() {
     return StyledRefreshIndicator(
       onRefresh: _refreshHomeData,
       refreshText: '刷新中...',
-      primaryColor: const Color(0xFF27AE60), // 绿色主题
+      primaryColor: const Color(0xFF27AE60),
       child: SingleChildScrollView(
         child: Column(
           children: [
-            // 顶部导航栏
-            TopTabSwitcher(
-              selectedTab: tab,
-              onTabChanged: _onTopTabChanged,
+            const SizedBox(height: 8),
+            // 继续观看组件
+            ContinueWatchingSection(
+              onVideoTap: _onVideoTap,
+              onGlobalMenuAction: _onGlobalMenuAction,
+              onViewAll: () {
+                // 切换到播放历史标签
+                _onTopTabChanged('播放历史');
+              },
             ),
-            // 根据选中的标签显示不同内容
-            tab == '首页'
-                ? Column(
-                    children: [
-                      const SizedBox(height: 8),
-                      // 继续观看组件
-                      ContinueWatchingSection(
-                        onVideoTap: _onVideoTap,
-                        onGlobalMenuAction: _onGlobalMenuAction,
-                        onViewAll: () {
-                          // 切换到播放历史标签
-                          _onTopTabChanged('播放历史');
-                        },
-                      ),
-                      // 热门电影组件
-                      HotMoviesSection(
-                        onMovieTap: (videoInfo) {
-                          _navigateToPlayer(
-                            PlayerScreen(
-                              title: videoInfo.title,
-                              stype: 'movie',
-                              year: videoInfo.year,
-                            ),
-                          );
-                        },
-                        onMoreTap: () => _onBottomNavChanged(1), // 切换到电影页面
-                        onGlobalMenuAction: (videoInfo, action) {
-                          if (action == VideoMenuAction.play) {
-                            _navigateToPlayer(
-                              PlayerScreen(
-                                title: videoInfo.title,
-                                stype: 'movie',
-                                year: videoInfo.year,
-                              ),
-                            );
-                          } else {
-                            _onGlobalMenuActionFromVideoInfo(videoInfo, action);
-                          }
-                        },
-                      ),
-                      // 热门剧集组件
-                      HotTvSection(
-                        onTvTap: (videoInfo) {
-                          _navigateToPlayer(
-                            PlayerScreen(
-                              title: videoInfo.title,
-                              year: videoInfo.year,
-                            ),
-                          );
-                        },
-                        onMoreTap: () => _onBottomNavChanged(2), // 切换到剧集页面
-                        onGlobalMenuAction: (videoInfo, action) {
-                          if (action == VideoMenuAction.play) {
-                            _navigateToPlayer(
-                              PlayerScreen(
-                                title: videoInfo.title,
-                                year: videoInfo.year,
-                              ),
-                            );
-                          } else {
-                            _onGlobalMenuActionFromVideoInfo(videoInfo, action);
-                          }
-                        },
-                      ),
-                      // 新番放送组件
-                      BangumiSection(
-                        onBangumiTap: (videoInfo) {
-                          _navigateToPlayer(
-                            PlayerScreen(
-                              title: videoInfo.title,
-                              year: videoInfo.year,
-                            ),
-                          );
-                        },
-                        onMoreTap: () => _onBottomNavChanged(3), // 切换到动漫页面
-                        onGlobalMenuAction: (videoInfo, action) {
-                          if (action == VideoMenuAction.play) {
-                            _navigateToPlayer(
-                              PlayerScreen(
-                                title: videoInfo.title,
-                                year: videoInfo.year,
-                              ),
-                            );
-                          } else {
-                            _onGlobalMenuActionFromVideoInfo(videoInfo, action);
-                          }
-                        },
-                      ),
-                      // 热门综艺组件
-                      HotShowSection(
-                        onShowTap: (videoInfo) {
-                          _navigateToPlayer(
-                            PlayerScreen(
-                              title: videoInfo.title,
-                              year: videoInfo.year,
-                            ),
-                          );
-                        },
-                        onMoreTap: () => _onBottomNavChanged(4), // 切换到综艺页面
-                        onGlobalMenuAction: (videoInfo, action) {
-                          if (action == VideoMenuAction.play) {
-                            _navigateToPlayer(
-                              PlayerScreen(
-                                title: videoInfo.title,
-                                year: videoInfo.year,
-                              ),
-                            );
-                          } else {
-                            _onGlobalMenuActionFromVideoInfo(videoInfo, action);
-                          }
-                        },
-                      ),
-                    ],
-                  )
-                : tab == '播放历史'
-                    ? Column(
-                        children: [
-                          const SizedBox(height: 4),
-                          HistoryGrid(
-                            onVideoTap: _onVideoTap,
-                            onGlobalMenuAction: _onGlobalMenuAction,
-                          ),
-                        ],
-                      )
-                    : Column(
-                        children: [
-                          const SizedBox(height: 4),
-                          FavoritesGrid(
-                            onVideoTap: _onVideoTap,
-                            onGlobalMenuAction:
-                                (VideoInfo videoInfo, VideoMenuAction action) {
-                              // 将VideoInfo转换为PlayRecord用于统一处理
-                              final playRecord = PlayRecord(
-                                id: videoInfo.id,
-                                source: videoInfo.source,
-                                title: videoInfo.title,
-                                sourceName: videoInfo.sourceName,
-                                year: videoInfo.year,
-                                cover: videoInfo.cover,
-                                index: videoInfo.index,
-                                totalEpisodes: videoInfo.totalEpisodes,
-                                playTime: videoInfo.playTime,
-                                totalTime: videoInfo.totalTime,
-                                saveTime: videoInfo.saveTime,
-                                searchTitle: videoInfo.searchTitle,
-                              );
-                              _onGlobalMenuAction(playRecord, action);
-                            },
-                          ),
-                        ],
-                      ),
+            // 热门电影组件
+            HotMoviesSection(
+              onMovieTap: (videoInfo) {
+                _navigateToPlayer(
+                  PlayerScreen(
+                    title: videoInfo.title,
+                    stype: 'movie',
+                    year: videoInfo.year,
+                  ),
+                );
+              },
+              onMoreTap: () => _onBottomNavChanged(1),
+              onGlobalMenuAction: (videoInfo, action) {
+                if (action == VideoMenuAction.play) {
+                  _navigateToPlayer(
+                    PlayerScreen(
+                      title: videoInfo.title,
+                      stype: 'movie',
+                      year: videoInfo.year,
+                    ),
+                  );
+                } else {
+                  _onGlobalMenuActionFromVideoInfo(videoInfo, action);
+                }
+              },
+            ),
+            // 热门剧集组件
+            HotTvSection(
+              onTvTap: (videoInfo) {
+                _navigateToPlayer(
+                  PlayerScreen(
+                    title: videoInfo.title,
+                    year: videoInfo.year,
+                  ),
+                );
+              },
+              onMoreTap: () => _onBottomNavChanged(2),
+              onGlobalMenuAction: (videoInfo, action) {
+                if (action == VideoMenuAction.play) {
+                  _navigateToPlayer(
+                    PlayerScreen(
+                      title: videoInfo.title,
+                      year: videoInfo.year,
+                    ),
+                  );
+                } else {
+                  _onGlobalMenuActionFromVideoInfo(videoInfo, action);
+                }
+              },
+            ),
+            // 新番放送组件
+            BangumiSection(
+              onBangumiTap: (videoInfo) {
+                _navigateToPlayer(
+                  PlayerScreen(
+                    title: videoInfo.title,
+                    year: videoInfo.year,
+                  ),
+                );
+              },
+              onMoreTap: () => _onBottomNavChanged(3),
+              onGlobalMenuAction: (videoInfo, action) {
+                if (action == VideoMenuAction.play) {
+                  _navigateToPlayer(
+                    PlayerScreen(
+                      title: videoInfo.title,
+                      year: videoInfo.year,
+                    ),
+                  );
+                } else {
+                  _onGlobalMenuActionFromVideoInfo(videoInfo, action);
+                }
+              },
+            ),
+            // 热门综艺组件
+            HotShowSection(
+              onShowTap: (videoInfo) {
+                _navigateToPlayer(
+                  PlayerScreen(
+                    title: videoInfo.title,
+                    year: videoInfo.year,
+                  ),
+                );
+              },
+              onMoreTap: () => _onBottomNavChanged(4),
+              onGlobalMenuAction: (videoInfo, action) {
+                if (action == VideoMenuAction.play) {
+                  _navigateToPlayer(
+                    PlayerScreen(
+                      title: videoInfo.title,
+                      year: videoInfo.year,
+                    ),
+                  );
+                } else {
+                  _onGlobalMenuActionFromVideoInfo(videoInfo, action);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建播放历史标签内容
+  Widget _buildHistoryTabContent() {
+    return StyledRefreshIndicator(
+      onRefresh: _refreshHomeData,
+      refreshText: '刷新中...',
+      primaryColor: const Color(0xFF27AE60),
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 4),
+            HistoryGrid(
+              onVideoTap: _onVideoTap,
+              onGlobalMenuAction: _onGlobalMenuAction,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建收藏夹标签内容
+  Widget _buildFavoritesTabContent() {
+    return StyledRefreshIndicator(
+      onRefresh: _refreshHomeData,
+      refreshText: '刷新中...',
+      primaryColor: const Color(0xFF27AE60),
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 4),
+            FavoritesGrid(
+              onVideoTap: _onVideoTap,
+              onGlobalMenuAction:
+                  (VideoInfo videoInfo, VideoMenuAction action) {
+                // 将VideoInfo转换为PlayRecord用于统一处理
+                final playRecord = PlayRecord(
+                  id: videoInfo.id,
+                  source: videoInfo.source,
+                  title: videoInfo.title,
+                  sourceName: videoInfo.sourceName,
+                  year: videoInfo.year,
+                  cover: videoInfo.cover,
+                  index: videoInfo.index,
+                  totalEpisodes: videoInfo.totalEpisodes,
+                  playTime: videoInfo.playTime,
+                  totalTime: videoInfo.totalTime,
+                  saveTime: videoInfo.saveTime,
+                  searchTitle: videoInfo.searchTitle,
+                );
+                _onGlobalMenuAction(playRecord, action);
+              },
+            ),
           ],
         ),
       ),
@@ -328,7 +393,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildCurrentPage() {
     switch (_currentBottomNavIndex) {
       case 0:
-        return _buildHomeContentForTab(_selectedTopTab);
+        return _buildHomeContentWithPageView();
       case 1:
         return const MovieScreen();
       case 2:
@@ -364,6 +429,29 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _selectedTopTab = tab;
     });
+
+    // 同步 PageView 的页面切换
+    int pageIndex;
+    switch (tab) {
+      case '首页':
+        pageIndex = 0;
+        break;
+      case '播放历史':
+        pageIndex = 1;
+        break;
+      case '收藏夹':
+        pageIndex = 2;
+        break;
+      default:
+        pageIndex = 0;
+    }
+
+    // 使用动画切换到对应页面
+    _pageController.animateToPage(
+      pageIndex,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
   /// 处理点击搜索按钮
