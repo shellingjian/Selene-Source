@@ -49,6 +49,9 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   
   // 当前频道的 GlobalKey，用于滚动定位
   final GlobalKey _currentChannelKey = GlobalKey();
+  
+  // 节目单滚动控制器
+  final ScrollController _programScrollController = ScrollController();
 
   @override
   void initState() {
@@ -91,6 +94,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
 
   @override
   void dispose() {
+    _programScrollController.dispose();
     super.dispose();
   }
 
@@ -163,16 +167,18 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     
     // 延迟执行，确保列表已经渲染
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 使用 Scrollable.ensureVisible 滚动到当前节目
-      final context = _currentProgramKey.currentContext;
-      if (context != null) {
-        Scrollable.ensureVisible(
-          context,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-          alignment: 0.2, // 将当前节目显示在屏幕上方 20% 的位置
-        );
-      }
+      if (!_programScrollController.hasClients) return;
+      
+      // 计算滚动位置（每个节目项约 100 像素高度）
+      const itemHeight = 100.0;
+      final targetOffset = currentIndex * itemHeight;
+      
+      // 滚动到目标位置
+      _programScrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
     });
   }
 
@@ -361,18 +367,10 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
       children: [
         // 播放器占位
         SizedBox(height: statusBarHeight + macOSPadding + playerHeight),
-        // 频道信息和节目单区域
+        _buildChannelInfo(theme, themeService),
+        _buildSourceSelector(theme, themeService),
         Expanded(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildChannelInfo(theme, themeService),
-                _buildSourceSelector(theme, themeService),
-                _buildProgramGuide(theme, themeService),
-              ],
-            ),
-          ),
+          child: _buildProgramGuideScrollable(theme, themeService),
         ),
       ],
     );
@@ -398,9 +396,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
               _buildChannelInfo(theme, themeService),
               // 节目单
               Expanded(
-                child: SingleChildScrollView(
-                  child: _buildProgramGuide(theme, themeService),
-                ),
+                child: _buildProgramGuideScrollable(theme, themeService),
               ),
             ],
           ),
@@ -473,18 +469,13 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
       children: [
         // 播放器占位
         SizedBox(height: statusBarHeight + macOSPadding + playerHeight),
-        // 频道信息和节目单区域
+        // 台标台名（固定）
+        _buildChannelInfo(theme, themeService),
+        // 播放源选择器（固定）
+        _buildSourceSelector(theme, themeService),
+        // 节目单（可滚动）
         Expanded(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildChannelInfo(theme, themeService),
-                _buildSourceSelector(theme, themeService),
-                _buildProgramGuide(theme, themeService),
-              ],
-            ),
-          ),
+          child: _buildProgramGuideScrollable(theme, themeService),
         ),
       ],
     );
@@ -786,94 +777,134 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     );
   }
 
-  /// 构建节目单
-  Widget _buildProgramGuide(ThemeData theme, ThemeService themeService) {
+  /// 构建可滚动的节目单（用于平板横屏）
+  Widget _buildProgramGuideScrollable(ThemeData theme, ThemeService themeService) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                '节目单',
-                style: FontUtils.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: themeService.isDarkMode
-                      ? Colors.white
-                      : const Color(0xFF2c3e50),
-                ),
-              ),
-              const Spacer(),
-              if (_isLoadingEpg)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF27ae60)),
-                  ),
-                ),
-            ],
+      decoration: BoxDecoration(
+        color: themeService.isDarkMode
+            ? const Color(0xFF1e1e1e)
+            : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: themeService.isDarkMode
+                ? const Color(0xFF333333)
+                : const Color(0xFFe0e0e0),
           ),
-          const SizedBox(height: 12),
-          if (_isLoadingEpg)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Text(
-                  '加载节目单中...',
+        ),
+      ),
+      child: Column(
+        children: [
+          // 标题栏（固定）
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: themeService.isDarkMode
+                      ? const Color(0xFF333333)
+                      : const Color(0xFFe0e0e0),
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  '节目单',
                   style: FontUtils.poppins(
-                    fontSize: 14,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                     color: themeService.isDarkMode
-                        ? const Color(0xFF999999)
-                        : const Color(0xFF7f8c8d),
+                        ? Colors.white
+                        : const Color(0xFF2c3e50),
                   ),
                 ),
-              ),
-            )
-          else if (_programs == null || _programs!.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 48,
-                      color: themeService.isDarkMode
-                          ? const Color(0xFF666666)
-                          : const Color(0xFF95a5a6),
+                const Spacer(),
+                if (_isLoadingEpg)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF27ae60)),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '暂无节目单信息',
-                      style: FontUtils.poppins(
-                        fontSize: 14,
-                        color: themeService.isDarkMode
-                            ? const Color(0xFF999999)
-                            : const Color(0xFF7f8c8d),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            ..._programs!.asMap().entries.map((entry) {
-              final program = entry.value;
-              // 给当前正在播放的节目添加 key
-              return _buildProgramItem(
-                program,
-                themeService,
-                key: program.isLive ? _currentProgramKey : null,
-              );
-            }),
+                  ),
+              ],
+            ),
+          ),
+          // 节目列表（可滚动）
+          Expanded(
+            child: _buildProgramList(themeService),
+          ),
         ],
       ),
     );
   }
+
+  /// 构建节目列表
+  Widget _buildProgramList(ThemeService themeService) {
+    if (_isLoadingEpg) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Text(
+            '加载节目单中...',
+            style: FontUtils.poppins(
+              fontSize: 14,
+              color: themeService.isDarkMode
+                  ? const Color(0xFF999999)
+                  : const Color(0xFF7f8c8d),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_programs == null || _programs!.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 48,
+                color: themeService.isDarkMode
+                    ? const Color(0xFF666666)
+                    : const Color(0xFF95a5a6),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '暂无节目单信息',
+                style: FontUtils.poppins(
+                  fontSize: 14,
+                  color: themeService.isDarkMode
+                      ? const Color(0xFF999999)
+                      : const Color(0xFF7f8c8d),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      controller: _programScrollController,
+      padding: const EdgeInsets.all(16),
+      itemCount: _programs!.length,
+      itemBuilder: (context, index) {
+        final program = _programs![index];
+        return _buildProgramItem(
+          program,
+          themeService,
+          key: program.isLive ? _currentProgramKey : null,
+        );
+      },
+    );
+  }
+
+
 
   Widget _buildProgramItem(
     EpgProgram program,

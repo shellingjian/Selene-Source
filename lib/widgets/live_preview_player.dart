@@ -132,18 +132,22 @@ class _LivePreviewPlayerState extends State<LivePreviewPlayer> {
 
   Widget _buildLogoOrDefault() {
     if (widget.channel.logo.isNotEmpty) {
-      return Image.network(
-        widget.channel.logo,
+      return Container(
         width: double.infinity,
         height: double.infinity,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return widget.defaultBuilder(context);
-        },
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return widget.defaultBuilder(context);
-        },
+        padding: const EdgeInsets.all(8),
+        color: Colors.black.withOpacity(0.1),
+        child: Image.network(
+          widget.channel.logo,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return widget.defaultBuilder(context);
+          },
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return widget.defaultBuilder(context);
+          },
+        ),
       );
     }
     return widget.defaultBuilder(context);
