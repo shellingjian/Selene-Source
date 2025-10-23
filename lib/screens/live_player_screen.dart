@@ -710,7 +710,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: themeService.isDarkMode
             ? const Color(0xFF1e1e1e)
@@ -720,6 +720,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
             color: themeService.isDarkMode
                 ? const Color(0xFF333333)
                 : const Color(0xFFe0e0e0),
+            width: 0.5,
           ),
         ),
       ),
@@ -728,14 +729,14 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
           Text(
             '播放源',
             style: FontUtils.poppins(
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
               color: themeService.isDarkMode
                   ? Colors.white
                   : const Color(0xFF2c3e50),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: _buildSourceDropdown(themeService),
           ),
@@ -749,15 +750,15 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     return GestureDetector(
       onTap: () => _showSourceBottomSheet(themeService),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: themeService.isDarkMode
               ? const Color(0xFF2a2a2a)
               : const Color(0xFFf5f5f5),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: const Color(0xFF27ae60).withOpacity(0.3),
-            width: 1.5,
+            width: 1,
           ),
         ),
         child: Row(
@@ -766,22 +767,22 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     color: const Color(0xFF27ae60).withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.play_circle_outline,
-                    size: 16,
+                    size: 14,
                     color: Color(0xFF27ae60),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Text(
                   '源 ${_currentSourceIndex + 1}',
                   style: FontUtils.poppins(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: themeService.isDarkMode
                         ? Colors.white
@@ -795,7 +796,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
               color: themeService.isDarkMode
                   ? const Color(0xFF999999)
                   : const Color(0xFF7f8c8d),
-              size: 20,
+              size: 18,
             ),
           ],
         ),

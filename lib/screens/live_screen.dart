@@ -41,7 +41,7 @@ class _LiveScreenState extends State<LiveScreen> {
           _isLoading = false;
           
           if (groups.isEmpty) {
-            _errorMessage = '暂无频道，请从 MoonTV 获取';
+            _errorMessage = '暂无频道，请在 MoonTV 添加';
           }
         });
       }
@@ -297,7 +297,7 @@ class _LiveScreenState extends State<LiveScreen> {
     final moreGroups = _channelGroups.map((g) => g.name).toList();
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: themeService.isDarkMode
             ? const Color(0xFF1e1e1e).withOpacity(0.9)
@@ -307,7 +307,7 @@ class _LiveScreenState extends State<LiveScreen> {
             color: themeService.isDarkMode
                 ? const Color(0xFF333333).withOpacity(0.3)
                 : Colors.white.withOpacity(0.2),
-            width: 1,
+            width: 0.5,
           ),
         ),
       ),
@@ -315,8 +315,8 @@ class _LiveScreenState extends State<LiveScreen> {
         children: [
           Expanded(
             child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: 6,
+              runSpacing: 4,
               children: [
                 // 显示"全部"和"收藏"
                 ...visibleGroups.map((group) {
@@ -329,8 +329,8 @@ class _LiveScreenState extends State<LiveScreen> {
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                        horizontal: 10,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: isSelected
@@ -338,12 +338,12 @@ class _LiveScreenState extends State<LiveScreen> {
                             : themeService.isDarkMode
                                 ? const Color(0xFF2a2a2a)
                                 : const Color(0xFFf5f5f5),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         group,
                         style: FontUtils.poppins(
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: isSelected
                               ? FontWeight.w600
                               : FontWeight.w400,
@@ -363,19 +363,19 @@ class _LiveScreenState extends State<LiveScreen> {
                     onTap: () => _showMoreGroupsBottomSheet(moreGroups, themeService),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                        horizontal: 10,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: themeService.isDarkMode
                             ? const Color(0xFF2a2a2a)
                             : const Color(0xFFf5f5f5),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: themeService.isDarkMode
                               ? const Color(0xFF333333)
                               : const Color(0xFFe0e0e0),
-                          width: 1,
+                          width: 0.5,
                         ),
                       ),
                       child: Row(
@@ -384,17 +384,17 @@ class _LiveScreenState extends State<LiveScreen> {
                           Text(
                             '更多',
                             style: FontUtils.poppins(
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: FontWeight.w500,
                               color: themeService.isDarkMode
                                   ? const Color(0xFFb0b0b0)
                                   : const Color(0xFF7f8c8d),
                             ),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 2),
                           Icon(
                             Icons.keyboard_arrow_down_rounded,
-                            size: 18,
+                            size: 16,
                             color: themeService.isDarkMode
                                 ? const Color(0xFFb0b0b0)
                                 : const Color(0xFF7f8c8d),
@@ -406,12 +406,21 @@ class _LiveScreenState extends State<LiveScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            color: const Color(0xFF27ae60),
-            tooltip: '刷新直播源',
-            onPressed: _fetchFromMoonTV,
+          const SizedBox(width: 4),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFF27ae60).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.refresh, size: 18),
+              color: const Color(0xFF27ae60),
+              tooltip: '刷新直播源',
+              onPressed: _fetchFromMoonTV,
+              padding: EdgeInsets.zero,
+            ),
           ),
         ],
       ),
