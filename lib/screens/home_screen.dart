@@ -22,6 +22,7 @@ import 'tv_screen.dart';
 import 'anime_screen.dart';
 import 'show_screen.dart';
 import 'player_screen.dart';
+import 'live_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -410,6 +411,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const TvScreen(),
         const AnimeScreen(),
         const ShowScreen(),
+        const LiveScreen(),
       ],
     );
   }
