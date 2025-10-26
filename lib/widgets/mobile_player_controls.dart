@@ -373,28 +373,36 @@ class _MobilePlayerControlsState extends State<MobilePlayerControls> {
   Future<void> _showSpeedDialog() async {
     final speeds = [0.5, 0.75, 1.0, 1.5, 2.0];
     final currentSpeed = widget.playbackSpeedListenable.value;
+    final screenHeight = MediaQuery.of(context).size.height;
     final result = await showModalBottomSheet<double>(
       context: context,
       builder: (context) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: speeds.map((speed) {
-              final selected = (speed - currentSpeed).abs() < 0.01;
-              return ListTile(
-                title: Text(
-                  '${speed}x',
-                  style: TextStyle(
-                    color: selected
-                        ? Colors.red
-                        : (isDark ? Colors.white : Colors.black87),
-                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                  ),
-                ),
-                onTap: () => Navigator.of(context).pop(speed),
-              );
-            }).toList(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: screenHeight * 0.75,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: speeds.map((speed) {
+                  final selected = (speed - currentSpeed).abs() < 0.01;
+                  return ListTile(
+                    title: Text(
+                      '${speed}x',
+                      style: TextStyle(
+                        color: selected
+                            ? Colors.red
+                            : (isDark ? Colors.white : Colors.black87),
+                        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    onTap: () => Navigator.of(context).pop(speed),
+                  );
+                }).toList(),
+              ),
+            ),
           ),
         );
       },
