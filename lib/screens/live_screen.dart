@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:selene/services/live_service.dart';
+import '../services/live_service.dart';
 import '../models/live_channel.dart';
 import '../models/live_source.dart';
 import '../utils/font_utils.dart';
