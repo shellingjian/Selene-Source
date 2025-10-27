@@ -7,6 +7,8 @@ import '../services/user_data_service.dart';
 import '../screens/login_screen.dart';
 import '../services/douban_cache_service.dart';
 import '../services/page_cache_service.dart';
+import '../services/live_service.dart';
+import '../services/local_search_cache_service.dart';
 import '../services/version_service.dart';
 import '../utils/device_utils.dart';
 import '../utils/font_utils.dart';
@@ -126,9 +128,11 @@ class _UserMenuState extends State<UserMenu> {
   }
 
   Future<void> _handleLogout() async {
-    // 清空所有页面缓存
+    // 清空所有缓存
+    LiveService.clearAllCache();
+    LocalSearchCacheService().clearCache();
     PageCacheService().clearAllCache();
-    
+
     // 只清除密码和cookies，保留服务器地址和用户名
     await UserDataService.clearPasswordAndCookies();
 
