@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:media_kit/media_kit.dart';
@@ -885,22 +886,23 @@ class _MobilePlayerControlsState extends State<MobilePlayerControls> {
                       ),
                     ),
                   ),
-                GestureDetector(
-                  onTap: () async {
-                    print('PIP button clicked!');
-                    _onUserInteraction();
-                    await _enterPipMode();
-                  },
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      Icons.picture_in_picture_alt,
-                      color: Colors.white,
-                      size: _isFullscreen ? 22 : 20,
+                if (Platform.isAndroid)
+                  GestureDetector(
+                    onTap: () async {
+                      print('PIP button clicked!');
+                      _onUserInteraction();
+                      await _enterPipMode();
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.picture_in_picture_alt,
+                        color: Colors.white,
+                        size: _isFullscreen ? 22 : 20,
+                      ),
                     ),
                   ),
-                ),
                 GestureDetector(
                   onTap: () {
                     _onUserInteraction();
